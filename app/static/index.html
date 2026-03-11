@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SPT — Stock Portfolio Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0A0A0A;
+      --panel:     #111111;
+      --panel2:    #161616;
+      --border:    #2A2A2A;
+      --border2:   #1E1E1E;
+      --text:      #E8E4DC;
+      --muted:     #666660;
+      --dim:       #444440;
+      --orange:    #FF6B00;
+      --orange2:   #CC5500;
+      --green:     #00CC66;
+      --red:       #FF3333;
+      --yellow:    #FFB800;
+      --cyan:      #00BBCC;
+      --green-dim: rgba(0,204,102,0.1);
+      --red-dim:   rgba(255,51,51,0.1);
+    }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 13px;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--orange);
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-brand {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+      font-size: 14px;
+      color: #000;
+      letter-spacing: 2px;
+    }
+    .topbar-sep { color: rgba(0,0,0,0.3); }
+    .topbar-sub { font-size: 11px; color: rgba(0,0,0,0.6); letter-spacing: 1px; }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 11px;
+      color: rgba(0,0,0,0.7);
+    }
+    .topbar-time { font-weight: 600; color: #000; letter-spacing: 1px; }
+    .live-badge {
+      background: #000;
+      color: var(--orange);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      letter-spacing: 1px;
+    }
+
+    /* ── NAV BAR ── */
+    .navbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      height: 36px;
+      display: flex;
+      align-items: stretch;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      cursor: pointer;
+      border-right: 1px solid var(--border2);
+      transition: all 0.1s;
+      text-transform: uppercase;
+      user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: var(--panel2); }
+    .nav-item.active { color: #000; background: var(--orange); }
+    .nav-item .key {
+      background: var(--border);
+      color: var(--muted);
+      font-size: 9px;
+      padding: 1px 4px;
+      margin-left: 6px;
+    }
+    .nav-item.active .key { background: var(--orange2); color: #000; }
+    .navbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── MAIN ── */
+    main { padding: 16px; max-width: 1280px; margin: 0 auto; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── SECTION HEADER ── */
+    .section-hdr {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 12px;
+    }
+    .section-hdr-label {
+      background: var(--orange);
+      color: #000;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      padding: 3px 10px;
+      text-transform: uppercase;
+    }
+    .section-hdr-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin-left: 12px;
+    }
+    .section-hdr-sub {
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .panel-header {
+      background: var(--panel2);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 12px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-body { padding: 16px; }
+
+    /* ── SEARCH ── */
+    .search-row {
+      display: flex;
+      gap: 0;
+      margin-bottom: 16px;
+    }
+    .input-label {
+      background: var(--orange);
+      color: #000;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    input[type="text"], input[type="number"] {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-left: none;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.1s;
+      width: 100%;
+    }
+    input[type="text"]::placeholder,
+    input[type="number"]::placeholder { text-transform: none; color: var(--muted); }
+    input[type="text"]:focus,
+    input[type="number"]:focus { border-color: var(--orange); background: #1A1A1A; }
+    .btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding: 0 20px;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.1s;
+      white-space: nowrap;
+    }
+    .btn-orange { background: var(--orange); color: #000; }
+    .btn-orange:hover { background: #FF8533; }
+    .btn-ghost { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,51,51,0.2); font-size: 10px; padding: 4px 10px; }
+    .btn-red:hover { background: rgba(255,51,51,0.2); }
+
+    /* ── QUOTE DISPLAY ── */
+    .quote-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .quote-ticker-big { font-size: 32px; font-weight: 600; color: var(--orange); letter-spacing: 2px; }
+    .quote-price-big { font-size: 28px; font-weight: 600; color: var(--text); }
+    .quote-change-big { font-size: 16px; font-weight: 500; }
+    .up { color: var(--green); }
+    .dn { color: var(--red); }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .data-cell {
+      background: var(--panel2);
+      padding: 10px 14px;
+    }
+    .data-cell-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+    .data-cell-value { font-size: 14px; font-weight: 500; color: var(--text); }
+
+    /* ── METRICS ── */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .metric-cell {
+      background: var(--panel);
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .metric-cell-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+    .metric-cell-value { font-size: 16px; font-weight: 600; }
+    .trend-bull { color: var(--green); }
+    .trend-bear { color: var(--red); }
+    .trend-neut { color: var(--yellow); }
+
+    /* ── CHART ── */
+    .chart-wrap { height: 220px; position: relative; margin-top: 12px; }
+
+    /* ── TABLE ── */
+    .bb-table { width: 100%; border-collapse: collapse; }
+    .bb-table thead tr {
+      background: var(--panel2);
+      border-bottom: 1px solid var(--orange);
+    }
+    .bb-table th {
+      padding: 7px 12px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .bb-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border2);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .bb-table tbody tr:hover { background: var(--panel2); }
+    .bb-table tbody tr:last-child td { border-bottom: none; }
+    .ticker-col { color: var(--orange); font-weight: 600; letter-spacing: 1px; font-size: 13px; }
+    .num-col { font-family: 'IBM Plex Mono', monospace; }
+
+    /* ── SUMMARY TILES ── */
+    .summary-tiles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .tile {
+      background: var(--panel);
+      padding: 16px;
+    }
+    .tile-label { font-size: 9px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px; }
+    .tile-value { font-size: 22px; font-weight: 600; }
+    .tile-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* ── FORM ── */
+    .add-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 0;
+    }
+    .form-field { display: flex; flex-direction: column; }
+    .form-field-label {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      padding: 3px 12px;
+      text-transform: uppercase;
+    }
+    .add-form input {
+      border-right: none;
+    }
+    .add-form > .btn { border-left: 1px solid var(--border); }
+
+    /* ── STATES ── */
+    .bb-empty {
+      padding: 40px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border: 1px dashed var(--border);
+    }
+    .bb-loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 20px 0;
+    }
+    .bb-spinner {
+      width: 14px; height: 14px;
+      border: 1px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .bb-error {
+      background: var(--red-dim);
+      border: 1px solid rgba(255,51,51,0.3);
+      color: var(--red);
+      padding: 8px 14px;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      margin-top: 8px;
+    }
+    .bb-success {
+      background: var(--green-dim);
+      border: 1px solid rgba(0,204,102,0.3);
+      color: var(--green);
+      padding: 8px 14px;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      margin-top: 8px;
+    }
+
+    .ticker-tag {
+      display: inline-block;
+      background: rgba(255,107,0,0.1);
+      color: var(--orange);
+      font-size: 10px;
+      padding: 2px 6px;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      border: 1px solid rgba(255,107,0,0.2);
+      transition: all 0.1s;
+    }
+    .ticker-tag:hover { background: rgba(255,107,0,0.2); }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">SPT</span>
+    <span class="topbar-sep">|</span>
+    <span class="topbar-sub">STOCK PORTFOLIO TRACKER</span>
+  </div>
+  <div class="topbar-right">
+    <span id="top-clock" class="topbar-time">--:--:--</span>
+    <span class="live-badge">LIVE</span>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="navbar">
+  <div class="nav-item active" onclick="showPage('quote', this)">
+    Quote <span class="key">F1</span>
+  </div>
+  <div class="nav-item" onclick="showPage('portfolio', this)">
+    Portfolio <span class="key">F2</span>
+  </div>
+  <div class="nav-item" onclick="showPage('summary', this)">
+    P&amp;L <span class="key">F3</span>
+  </div>
+  <div class="navbar-right">
+    <span id="market-status" style="color:var(--green);font-size:10px;letter-spacing:1px">● MARKET OPEN</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- ── QUOTE PAGE ── -->
+  <div class="page active" id="page-quote">
+    <div class="section-hdr">
+      <div class="section-hdr-label">Market Data</div>
+      <div class="section-hdr-line"></div>
+      <div class="section-hdr-sub">Real-time equity quotes &amp; technical indicators</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span>SECURITY LOOKUP</span>
+        <span style="color:var(--dim)">Enter ticker symbol and press EXECUTE</span>
+      </div>
+      <div class="panel-body">
+        <div class="search-row">
+          <div class="input-label">TICKER</div>
+          <input type="text" id="quote-input" placeholder="e.g. AAPL  MSFT  TSLA  RELIANCE.NS" maxlength="20"
+            onkeydown="if(event.key==='Enter') fetchQuote()"/>
+          <button class="btn btn-orange" onclick="fetchQuote()" style="min-width:110px">EXECUTE</button>
+        </div>
+
+        <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:0">
+          <span style="font-size:10px;color:var(--muted);margin-right:8px;line-height:24px">QUICK:</span>
+          <span class="ticker-tag" onclick="quickQuote('AAPL')">AAPL</span>
+          <span class="ticker-tag" onclick="quickQuote('MSFT')">MSFT</span>
+          <span class="ticker-tag" onclick="quickQuote('GOOGL')">GOOGL</span>
+          <span class="ticker-tag" onclick="quickQuote('AMZN')">AMZN</span>
+          <span class="ticker-tag" onclick="quickQuote('TSLA')">TSLA</span>
+          <span class="ticker-tag" onclick="quickQuote('NVDA')">NVDA</span>
+          <span class="ticker-tag" onclick="quickQuote('JPM')">JPM</span>
+          <span class="ticker-tag" onclick="quickQuote('GS')">GS</span>
+        </div>
+
+        <div id="quote-result"></div>
+      </div>
+    </div>
+
+    <div id="metrics-panel" style="display:none" class="panel">
+      <div class="panel-header"><span>TECHNICAL INDICATORS</span></div>
+      <div class="panel-body" id="metrics-result"></div>
+    </div>
+
+    <div id="history-panel" style="display:none" class="panel">
+      <div class="panel-header">
+        <span>PRICE HISTORY</span>
+        <span style="color:var(--dim)">30-DAY CLOSE</span>
+      </div>
+      <div class="panel-body">
+        <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PORTFOLIO PAGE ── -->
+  <div class="page" id="page-portfolio">
+    <div class="section-hdr">
+      <div class="section-hdr-label">Portfolio</div>
+      <div class="section-hdr-line"></div>
+      <div class="section-hdr-sub">Manage equity holdings</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span>ADD HOLDING</span></div>
+      <div class="panel-body">
+        <div class="add-form">
+          <div class="form-field">
+            <div class="form-field-label">Ticker</div>
+            <input type="text" id="add-ticker" placeholder="AAPL or RELIANCE.NS" maxlength="20" style="border-right:none" onkeydown="if(event.key==='Enter') addHolding()"/>
+          </div>
+          <div class="form-field">
+            <div class="form-field-label">Shares</div>
+            <input type="number" id="add-shares" placeholder="10" min="0.01" step="0.01" style="border-right:none" onkeydown="if(event.key==='Enter') addHolding()"/>
+          </div>
+          <div class="form-field">
+            <div class="form-field-label">Avg Buy Price ($)</div>
+            <input type="number" id="add-price" placeholder="150.00" min="0.01" step="0.01" onkeydown="if(event.key==='Enter') addHolding()"/>
+          </div>
+          <button class="btn btn-orange" onclick="addHolding()" style="height:100%;padding:0 24px">ADD</button>
+        </div>
+        <div id="add-msg"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span>HOLDINGS</span>
+        <span id="holdings-count" style="color:var(--dim)"></span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <div id="holdings-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── P&L PAGE ── -->
+  <div class="page" id="page-summary">
+    <div class="section-hdr">
+      <div class="section-hdr-label">P&amp;L Analysis</div>
+      <div class="section-hdr-line"></div>
+      <div class="section-hdr-sub">Live portfolio performance with real-time pricing</div>
+    </div>
+
+    <div id="summary-tiles" style="display:none"></div>
+
+    <div class="panel">
+      <div class="panel-header"><span>POSITION BREAKDOWN</span></div>
+      <div class="panel-body" style="padding:0">
+        <div id="summary-table"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  const API = '';
+
+  // clock
+  setInterval(() => {
+    const now = new Date();
+    document.getElementById('top-clock').textContent =
+      now.toLocaleTimeString('en-US', {hour12: false});
+    const h = now.getUTCHours() - 5; // EST approx
+    const isOpen = h >= 9 && h < 16 && now.getDay() > 0 && now.getDay() < 6;
+    const ms = document.getElementById('market-status');
+    ms.textContent = isOpen ? '● MARKET OPEN' : '● MARKET CLOSED';
+    ms.style.color = isOpen ? 'var(--green)' : 'var(--red)';
+  }, 1000);
+
+  function showPage(name, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    el.classList.add('active');
+    if (name === 'portfolio') loadHoldings();
+    if (name === 'summary') loadSummary();
+  }
+
+  function fmt(n) {
+    if (n == null) return '—';
+    return Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtPct(n) { return n == null ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
+  function fmtLarge(n) {
+    if (!n) return '—';
+    if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+    if (n >= 1e9)  return '$' + (n/1e9).toFixed(2) + 'B';
+    if (n >= 1e6)  return '$' + (n/1e6).toFixed(2) + 'M';
+    return '$' + fmt(n);
+  }
+
+  // ── QUOTE ──────────────────────────────────────────────────────────────────
+  let priceChart = null;
+
+  function quickQuote(ticker) {
+    document.getElementById('quote-input').value = ticker;
+    fetchQuote();
+  }
+
+  async function fetchQuote() {
+    const ticker = document.getElementById('quote-input').value.trim().toUpperCase().replace(/\.NS$/i, '.NS').replace(/\.BO$/i, '.BO');
+    if (!ticker) return;
+    const el = document.getElementById('quote-result');
+    el.innerHTML = '<div class="bb-loading"><div class="bb-spinner"></div> FETCHING ' + ticker + '...</div>';
+    document.getElementById('metrics-panel').style.display = 'none';
+    document.getElementById('history-panel').style.display = 'none';
+
+    try {
+      const [qRes, mRes, hRes] = await Promise.all([
+        fetch(`${API}/quote/${ticker}`),
+        fetch(`${API}/metrics/${ticker}`),
+        fetch(`${API}/history/${ticker}?days=30`)
+      ]);
+
+      if (!qRes.ok) {
+        el.innerHTML = `<div class="bb-error">NO DATA — TICKER "${ticker}" NOT FOUND OR MARKET UNAVAILABLE</div>`;
+        return;
+      }
+
+      const q = await qRes.json();
+      const up = q.change_pct >= 0;
+
+      el.innerHTML = `
+        <div class="quote-header">
+          <span class="quote-ticker-big">${q.ticker}</span>
+          <span class="quote-price-big">$${fmt(q.current_price)}</span>
+          <span class="quote-change-big ${up ? 'up' : 'dn'}">
+            ${up ? '▲' : '▼'} ${up ? '+' : ''}${fmt(q.change)} (${fmtPct(q.change_pct)})
+          </span>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell">
+            <div class="data-cell-label">Prev Close</div>
+            <div class="data-cell-value">$${fmt(q.previous_close)}</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">Volume</div>
+            <div class="data-cell-value">${Number(q.volume).toLocaleString()}</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">Market Cap</div>
+            <div class="data-cell-value">${fmtLarge(q.market_cap)}</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">Day Change</div>
+            <div class="data-cell-value ${up ? 'up' : 'dn'}">${up?'+':''}${fmt(q.change)}</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">Return</div>
+            <div class="data-cell-value ${up ? 'up' : 'dn'}">${fmtPct(q.change_pct)}</div>
+          </div>
+        </div>`;
+
+      if (mRes.ok) {
+        const m = await mRes.json();
+        document.getElementById('metrics-panel').style.display = 'block';
+        const tClass = m.trend === 'Bullish' ? 'trend-bull' : m.trend === 'Bearish' ? 'trend-bear' : 'trend-neut';
+        document.getElementById('metrics-result').innerHTML = `
+          <div class="metrics-row">
+            <div class="metric-cell">
+              <div class="metric-cell-label">MA-20</div>
+              <div class="metric-cell-value" style="color:var(--cyan)">${m.ma_20 ? '$'+fmt(m.ma_20) : '—'}</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-label">MA-50</div>
+              <div class="metric-cell-value" style="color:var(--cyan)">${m.ma_50 ? '$'+fmt(m.ma_50) : '—'}</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-label">RSI-14</div>
+              <div class="metric-cell-value" style="color:${m.rsi_14>70?'var(--red)':m.rsi_14<30?'var(--green)':'var(--yellow)'}">
+                ${m.rsi_14 ?? '—'}
+              </div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-label">Volatility (Ann.)</div>
+              <div class="metric-cell-value" style="color:var(--text)">${m.volatility ? m.volatility+'%' : '—'}</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-label">Trend Signal</div>
+              <div class="metric-cell-value ${tClass}">${m.trend ?? '—'}</div>
+            </div>
+          </div>`;
+      }
+
+      if (hRes.ok) {
+        const history = await hRes.json();
+        if (history.length > 0) {
+          document.getElementById('history-panel').style.display = 'block';
+          const labels = history.map(p => p.date.slice(5));
+          const prices = history.map(p => p.close);
+          if (priceChart) priceChart.destroy();
+          priceChart = new Chart(document.getElementById('price-chart'), {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                data: prices,
+                borderColor: up ? '#00CC66' : '#FF3333',
+                backgroundColor: up ? 'rgba(0,204,102,0.05)' : 'rgba(255,51,51,0.05)',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.2,
+                fill: true,
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: {
+                  grid: { color: 'rgba(255,255,255,0.03)' },
+                  ticks: { maxTicksLimit: 8, font: { family: 'IBM Plex Mono', size: 10 }, color: '#555' }
+                },
+                y: {
+                  grid: { color: 'rgba(255,255,255,0.03)' },
+                  ticks: { font: { family: 'IBM Plex Mono', size: 10 }, color: '#555', callback: v => '$'+v }
+                }
+              }
+            }
+          });
+        }
+      }
+
+    } catch(e) {
+      el.innerHTML = '<div class="bb-error">CONNECTION ERROR — ENSURE API SERVER IS RUNNING</div>';
+    }
+  }
+
+  // ── PORTFOLIO ──────────────────────────────────────────────────────────────
+  async function loadHoldings() {
+    const el = document.getElementById('holdings-table');
+    el.innerHTML = '<div class="bb-loading" style="padding:16px"><div class="bb-spinner"></div> LOADING PORTFOLIO...</div>';
+    try {
+      const res = await fetch(`${API}/portfolio`);
+      const holdings = await res.json();
+      document.getElementById('holdings-count').textContent = holdings.length + ' POSITION' + (holdings.length !== 1 ? 'S' : '');
+      if (!holdings.length) {
+        el.innerHTML = '<div class="bb-empty">NO POSITIONS — ADD YOUR FIRST HOLDING ABOVE</div>';
+        return;
+      }
+      el.innerHTML = `
+        <table class="bb-table">
+          <thead><tr>
+            <th>Ticker</th><th>Shares</th><th>Avg Buy</th><th>Added</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${holdings.map(h => `
+              <tr>
+                <td class="ticker-col">${h.ticker}</td>
+                <td class="num-col">${h.shares}</td>
+                <td class="num-col">$${fmt(h.avg_buy_price)}</td>
+                <td style="color:var(--muted);font-size:11px">${h.created_at ? new Date(h.created_at).toLocaleDateString() : '—'}</td>
+                <td><button class="btn btn-red" onclick="removeHolding('${h.ticker}')">REMOVE</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      el.innerHTML = '<div class="bb-error" style="margin:16px">FAILED TO LOAD HOLDINGS</div>';
+    }
+  }
+
+  async function addHolding() {
+    const rawTicker = document.getElementById('add-ticker').value.trim();
+    const ticker = rawTicker.toUpperCase().replace(/\.NS$/i, '.NS').replace(/\.BO$/i, '.BO');
+    const shares = parseFloat(document.getElementById('add-shares').value);
+    const price  = parseFloat(document.getElementById('add-price').value);
+    const msg    = document.getElementById('add-msg');
+
+    if (!ticker || !shares || !price) {
+      msg.innerHTML = '<div class="bb-error">ERROR — ALL FIELDS REQUIRED</div>';
+      return;
+    }
+
+    msg.innerHTML = '<div class="bb-loading"><div class="bb-spinner"></div> PROCESSING...</div>';
+    try {
+      const res = await fetch(`${API}/portfolio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, shares, avg_buy_price: price })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        msg.innerHTML = `<div class="bb-error">ERROR — ${data.detail.toUpperCase()}</div>`;
+        return;
+      }
+      msg.innerHTML = `<div class="bb-success">SUCCESS — ${ticker} ADDED TO PORTFOLIO</div>`;
+      document.getElementById('add-ticker').value = '';
+      document.getElementById('add-shares').value = '';
+      document.getElementById('add-price').value  = '';
+      loadHoldings();
+      setTimeout(() => msg.innerHTML = '', 3000);
+    } catch(e) {
+      msg.innerHTML = '<div class="bb-error">CONNECTION ERROR</div>';
+    }
+  }
+
+  async function removeHolding(ticker) {
+    if (!confirm(`REMOVE ${ticker} FROM PORTFOLIO?`)) return;
+    await fetch(`${API}/portfolio/${ticker}`, { method: 'DELETE' });
+    loadHoldings();
+  }
+
+  // ── P&L ────────────────────────────────────────────────────────────────────
+  async function loadSummary() {
+    const tiles = document.getElementById('summary-tiles');
+    const tbl   = document.getElementById('summary-table');
+    tbl.innerHTML = '<div class="bb-loading" style="padding:16px"><div class="bb-spinner"></div> FETCHING LIVE PRICES...</div>';
+    tiles.style.display = 'none';
+
+    try {
+      const res = await fetch(`${API}/portfolio/summary`);
+      if (res.status === 404) {
+        tbl.innerHTML = '<div class="bb-empty">NO POSITIONS — ADD HOLDINGS IN PORTFOLIO TAB</div>';
+        return;
+      }
+      const s = await res.json();
+      const up = s.total_pnl >= 0;
+
+      tiles.style.display = 'grid';
+      tiles.className = 'summary-tiles';
+      tiles.innerHTML = `
+        <div class="tile">
+          <div class="tile-label">Total Cost Basis</div>
+          <div class="tile-value" style="color:var(--text)">$${fmt(s.total_cost_basis)}</div>
+          <div class="tile-sub">Amount invested</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Current Value</div>
+          <div class="tile-value" style="color:var(--cyan)">$${fmt(s.total_current_value)}</div>
+          <div class="tile-sub">Live market price</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Total P&L</div>
+          <div class="tile-value ${up ? 'up' : 'dn'}">${up?'+':'−'}$${fmt(Math.abs(s.total_pnl))}</div>
+          <div class="tile-sub">Unrealised gain/loss</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Return</div>
+          <div class="tile-value ${up ? 'up' : 'dn'}">${fmtPct(s.total_pnl_pct)}</div>
+          <div class="tile-sub">${up ? 'Outperforming' : 'Underperforming'} cost</div>
+        </div>`;
+
+      tbl.innerHTML = `
+        <table class="bb-table">
+          <thead><tr>
+            <th>Ticker</th><th>Shares</th><th>Avg Buy</th>
+            <th>Current</th><th>Cost Basis</th><th>Mkt Value</th>
+            <th>P&L $</th><th>P&L %</th>
+          </tr></thead>
+          <tbody>
+            ${s.holdings.map(h => {
+              const pos = h.pnl >= 0;
+              return `<tr>
+                <td class="ticker-col">${h.ticker}</td>
+                <td class="num-col">${h.shares}</td>
+                <td class="num-col">$${fmt(h.avg_buy_price)}</td>
+                <td class="num-col">$${fmt(h.current_price)}</td>
+                <td class="num-col">$${fmt(h.cost_basis)}</td>
+                <td class="num-col">$${fmt(h.current_value)}</td>
+                <td class="num-col ${pos?'up':'dn'}">${pos?'+':'−'}$${fmt(Math.abs(h.pnl))}</td>
+                <td class="num-col ${pos?'up':'dn'}">${fmtPct(h.pnl_pct)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      tbl.innerHTML = '<div class="bb-error" style="margin:16px">FAILED TO LOAD P&L DATA</div>';
+    }
+  }
+</script>
+</body>
+</html>
