@@ -1,46 +1,74 @@
 """
 Stock service — market data fetching and financial metric computation.
 Uses yfinance (free, no API key required).
+Uses .history() instead of .info dict for reliability on cloud servers.
 """
 
 import yfinance as yf
 import numpy as np
+import pandas as pd
 from typing import Optional, List
 from app import schemas
+
+
+def _flatten_close(df) -> pd.Series:
+    """Handle both single and multi-level column DataFrames from yfinance."""
+    if df.empty:
+        return pd.Series(dtype=float)
+    if isinstance(df.columns, pd.MultiIndex):
+        if "Close" in df.columns.get_level_values(0):
+            col = df["Close"]
+            return col.iloc[:, 0].dropna() if isinstance(col, pd.DataFrame) else col.dropna()
+    if "Close" in df.columns:
+        return df["Close"].dropna()
+    return pd.Series(dtype=float)
 
 
 def get_current_price(ticker: str) -> Optional[float]:
     """Return latest price for a ticker, or None if not found."""
     try:
-        info = yf.Ticker(ticker).fast_info
-        price = info.last_price
-        return round(float(price), 2) if price else None
+        t = yf.Ticker(ticker)
+        hist = t.history(period="5d")
+        closes = _flatten_close(hist)
+        if not closes.empty:
+            return round(float(closes.iloc[-1]), 2)
+        return None
     except Exception:
         return None
 
 
 def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
-    """Return real-time quote: price, change, volume, market cap."""
+    """Return real-time quote using history() for reliability on cloud."""
     try:
-        info = yf.Ticker(ticker).info
-        current = info.get("currentPrice") or info.get("regularMarketPrice")
-        prev    = info.get("previousClose") or info.get("regularMarketPreviousClose")
-        volume  = info.get("volume") or info.get("regularMarketVolume", 0)
-        mktcap  = info.get("marketCap")
+        t = yf.Ticker(ticker)
+        hist = t.history(period="5d")
+        closes = _flatten_close(hist)
 
-        if not current or not prev:
+        if closes.empty or len(closes) < 2:
             return None
 
+        current = round(float(closes.iloc[-1]), 2)
+        prev    = round(float(closes.iloc[-2]), 2)
+
+        volume = 0
+        mktcap = None
+        try:
+            fi = t.fast_info
+            volume = int(getattr(fi, 'three_month_average_volume', 0) or 0)
+            mktcap = getattr(fi, 'market_cap', None)
+        except Exception:
+            pass
+
         change     = round(current - prev, 4)
-        change_pct = round((change / prev) * 100, 2)
+        change_pct = round((change / prev) * 100, 2) if prev else 0.0
 
         return schemas.StockQuote(
             ticker=ticker,
-            current_price=round(current, 2),
-            previous_close=round(prev, 2),
+            current_price=current,
+            previous_close=prev,
             change=change,
             change_pct=change_pct,
-            volume=int(volume),
+            volume=volume,
             market_cap=mktcap
         )
     except Exception:
@@ -50,37 +78,39 @@ def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
 def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
     """Return daily closing prices for the past N days."""
     try:
+        t = yf.Ticker(ticker)
         period = f"{days}d" if days <= 59 else f"{(days // 30) + 1}mo"
-        df = yf.download(ticker, period=period, progress=False)[["Close"]].dropna()
-        if df.empty:
+        df = t.history(period=period)
+        closes = _flatten_close(df)
+        if closes.empty:
             return []
-        return [
-            schemas.PricePoint(date=str(idx.date()), close=round(float(row["Close"]), 2))
-            for idx, row in df.iterrows()
-        ]
+        result = []
+        for idx, val in closes.items():
+            try:
+                date_str = idx.date().isoformat() if hasattr(idx, 'date') else str(idx)[:10]
+                result.append(schemas.PricePoint(date=date_str, close=round(float(val), 2)))
+            except Exception:
+                continue
+        return result
     except Exception:
         return []
 
 
 def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
-    """
-    Compute technical indicators:
-    - MA-20, MA-50 (Simple Moving Averages)
-    - RSI-14 (Wilder's method)
-    - 30-day annualised volatility (log-return std * sqrt(252))
-    - Trend signal (Bullish/Bearish/Neutral)
-    """
+    """Technical indicators: MA-20, MA-50, RSI-14, volatility, trend."""
     try:
-        df = yf.download(ticker, period="6mo", progress=False)
-        if df.empty or len(df) < 20:
-            return None
+        t = yf.Ticker(ticker)
+        df = t.history(period="6mo")
+        closes = _flatten_close(df)
 
-        closes = df["Close"].dropna()
+        if closes.empty or len(closes) < 20:
+            return None
 
         ma_20 = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
         ma_50 = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
         rsi   = _compute_rsi(closes)
-        vol   = round(float(np.log(closes / closes.shift(1)).dropna().tail(30).std() * np.sqrt(252) * 100), 2)
+        log_ret = np.log(closes / closes.shift(1)).dropna()
+        vol   = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
 
         trend = None
         if ma_20 and ma_50:
@@ -94,23 +124,26 @@ def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
         return None
 
 
-def _compute_rsi(closes, period: int = 14) -> Optional[float]:
-    """Wilder's RSI using exponential moving average of gains/losses."""
+def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
     try:
+        if len(closes) < period + 1:
+            return None
         delta    = closes.diff()
         gain     = delta.clip(lower=0)
         loss     = -delta.clip(upper=0)
         avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
         avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
-        rs       = avg_gain / avg_loss
-        rsi      = 100 - (100 / (1 + rs))
-        return round(float(rsi.iloc[-1]), 2)
+        last_loss = float(avg_loss.iloc[-1])
+        if last_loss == 0:
+            return 100.0
+        rs = float(avg_gain.iloc[-1]) / last_loss
+        return round(100 - (100 / (1 + rs)), 2)
     except Exception:
         return None
 
 
 def build_portfolio_summary(holdings) -> Optional[schemas.PortfolioSummary]:
-    """Fetch live prices and compute P&L for every holding in the portfolio."""
+    """Fetch live prices and compute P&L for every holding."""
     rows = []
     total_cost = total_value = 0.0
 
@@ -118,9 +151,9 @@ def build_portfolio_summary(holdings) -> Optional[schemas.PortfolioSummary]:
         price = get_current_price(h.ticker)
         if price is None:
             continue
-        cost  = round(h.shares * h.avg_buy_price, 2)
-        value = round(h.shares * price, 2)
-        pnl   = round(value - cost, 2)
+        cost    = round(h.shares * h.avg_buy_price, 2)
+        value   = round(h.shares * price, 2)
+        pnl     = round(value - cost, 2)
         pnl_pct = round((pnl / cost) * 100, 2) if cost else 0.0
 
         rows.append(schemas.HoldingSummary(
