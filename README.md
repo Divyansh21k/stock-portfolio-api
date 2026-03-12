@@ -1,61 +1,94 @@
-# Stock Portfolio Tracker API
+# 📈 Stock Portfolio Tracker API
 
-A production-ready REST API for real-time equity portfolio management — built with FastAPI, SQLAlchemy, and Finnhub market data. Features a full-stack dashboard with live quotes, technical indicators, and P&L analytics.
+> Real-time equity portfolio management powered by Finnhub market data and AI-driven technical analysis.
 
 **Live Demo:** https://stock-portfolio-api-qryi.onrender.com
 
 ---
 
-## Features
+## About
 
-- **Real-time quotes** — live prices, day change, market cap via Finnhub API
-- **Price history** — 30-day OHLC chart per ticker
-- **Technical indicators** — RSI-14, MA-20, MA-50, annualised volatility, trend signal
-- **Portfolio management** — add/remove holdings, track cost basis
-- **P&L analysis** — unrealised gain/loss per position and total portfolio
-- **Interactive dashboard** — 3-column finance UI with live watchlist sidebar
-- **CI/CD** — GitHub Actions test pipeline + auto-deploy on Render
-- **Containerised** — Docker + docker-compose for local dev
+Stock Portfolio Tracker is a production-ready REST API and interactive dashboard for managing equity portfolios with live market data. Built with FastAPI and powered by the Finnhub API for real-time quotes, it gives you instant access to technical indicators, P&L analytics, and price history — all in one place.
 
 ---
 
-## Tech Stack
+## Why Stock Portfolio Tracker?
 
-| Layer | Technology |
-|---|---|
-| Backend | Python, FastAPI |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| ORM | SQLAlchemy |
-| Market Data | Finnhub API |
-| Analytics | NumPy, Pandas |
-| Testing | pytest |
-| CI/CD | GitHub Actions |
-| Deployment | Render (Docker) |
+- ⚡ **Real-time Data** — Live quotes and price history via Finnhub API
+- 📊 **Technical Analysis** — RSI-14, MA-20/50, volatility and trend signals computed on the fly
+- 💼 **Portfolio Management** — Track holdings, cost basis, and unrealised P&L
+- 🚀 **Production Ready** — Dockerised, CI/CD via GitHub Actions, deployed on Render
+- 🌐 **Full Stack** — Interactive dashboard UI included, no external frontend needed
 
 ---
 
-## API Endpoints
+## ✨ Features
+
+### 📉 Market Data
+- Real-time stock quotes with day change and market cap
+- 30-day price history with interactive chart
+- Support for US equities and Indian stocks (NSE/BSE)
+
+### 🧮 Technical Indicators
+- **RSI-14** — Overbought / Oversold signal with visual gauge
+- **MA-20 & MA-50** — Moving average crossover analysis
+- **Annualised Volatility** — 30-day rolling volatility
+- **Trend Signal** — Bullish / Bearish / Neutral classification
+
+### 💰 Portfolio Analytics
+- Add, update, and remove holdings
+- Live cost basis vs market value comparison
+- Unrealised P&L per position and total portfolio return
+- Full position breakdown table
+
+### 🖥️ Interactive Dashboard
+- 3-column finance UI with live watchlist sidebar
+- Portfolio value card with real-time P&L
+- Clock with NYSE market hours indicator
+
+---
+
+## 🛠️ Tech Stack
+
+**Backend**
+- FastAPI — REST API framework
+- SQLAlchemy — ORM
+- PostgreSQL (prod) / SQLite (dev)
+- Finnhub API — Market data
+
+**Data & Analytics**
+- NumPy — Volatility and returns computation
+- Pandas — Time-series processing
+
+**DevOps**
+- Docker + docker-compose
+- GitHub Actions — CI pipeline
+- Render — Cloud deployment
+
+---
+
+## 📡 API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/` | Interactive dashboard UI |
+| `GET` | `/` | Interactive dashboard |
 | `GET` | `/health` | Health check |
 | `POST` | `/portfolio` | Add a holding |
 | `GET` | `/portfolio` | List all holdings |
 | `PUT` | `/portfolio/{ticker}` | Update a holding |
 | `DELETE` | `/portfolio/{ticker}` | Remove a holding |
-| `GET` | `/portfolio/summary` | Full P&L breakdown at live prices |
+| `GET` | `/portfolio/summary` | Full P&L at live prices |
 | `GET` | `/quote/{ticker}` | Real-time quote |
 | `GET` | `/history/{ticker}?days=30` | Price history |
-| `GET` | `/metrics/{ticker}` | RSI-14, MA-20/50, volatility, trend |
+| `GET` | `/metrics/{ticker}` | RSI, MA, volatility, trend |
 
 ---
 
-## Local Setup
+## 🚀 Local Setup
 
 ### Prerequisites
 - Python 3.11+
-- Finnhub API key (free at [finnhub.io](https://finnhub.io))
+- Finnhub API key — free at [finnhub.io](https://finnhub.io)
 
 ### Install & Run
 
@@ -69,7 +102,7 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Add your FINNHUB_API_KEY to .env
+# Add FINNHUB_API_KEY to .env
 
 uvicorn app.main:app --reload
 ```
@@ -90,7 +123,7 @@ pytest tests/ -v
 
 ---
 
-## Environment Variables
+## 🔐 Environment Variables
 
 | Variable | Description |
 |---|---|
@@ -99,22 +132,22 @@ pytest tests/ -v
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 stock_portfolio_api/
 ├── app/
-│   ├── main.py           # FastAPI routes
-│   ├── database.py       # SQLAlchemy setup
-│   ├── models.py         # ORM models
-│   ├── schemas.py        # Pydantic schemas
-│   ├── stock_service.py  # Market data + metrics
+│   ├── main.py              # FastAPI routes
+│   ├── database.py          # SQLAlchemy setup
+│   ├── models.py            # ORM models
+│   ├── schemas.py           # Pydantic schemas
+│   ├── stock_service.py     # Market data + metrics
 │   └── static/
-│       └── index.html    # Dashboard UI
+│       └── index.html       # Dashboard UI
 ├── tests/
 │   └── test_stock_service.py
 ├── .github/workflows/
-│   └── ci.yml            # GitHub Actions pipeline
+│   └── ci.yml               # GitHub Actions
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
@@ -122,26 +155,4 @@ stock_portfolio_api/
 
 ---
 
-## Example Requests
-
-```bash
-# Real-time quote
-curl https://stock-portfolio-api-qryi.onrender.com/quote/AAPL
-
-# Add a holding
-curl -X POST https://stock-portfolio-api-qryi.onrender.com/portfolio \
-  -H "Content-Type: application/json" \
-  -d '{"ticker": "AAPL", "shares": 10, "avg_buy_price": 175.00}'
-
-# Portfolio P&L
-curl https://stock-portfolio-api-qryi.onrender.com/portfolio/summary
-
-# Technical indicators
-curl https://stock-portfolio-api-qryi.onrender.com/metrics/NVDA
-```
-
----
-
-## Author
-
-**Divyansh Kharnal**  
+Made with ❤️ by [Divyansh Kharnal](https://github.com/Divyansh21k)
