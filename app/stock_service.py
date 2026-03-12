@@ -1,138 +1,121 @@
 """
-Stock service — market data fetching and financial metric computation.
-Uses yfinance with browser user-agent to avoid cloud IP blocks.
+Stock service — market data via Finnhub API.
+Finnhub works reliably on all cloud providers (no IP blocks).
+Set FINNHUB_API_KEY environment variable on Render.
 """
 
-import yfinance as yf
+import os
+import requests
 import numpy as np
 import pandas as pd
+from datetime import datetime, timedelta
 from typing import Optional, List
 from app import schemas
 
-# Patch yfinance session with a real browser user-agent
-import requests
-from requests.adapters import HTTPAdapter
+FINNHUB_KEY = os.getenv("FINNHUB_API_KEY", "")
+BASE = "https://finnhub.io/api/v1"
 
-_session = requests.Session()
-_session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-})
+_sess = requests.Session()
+_sess.headers.update({"X-Finnhub-Token": FINNHUB_KEY})
 
 
-def _ticker(symbol: str) -> yf.Ticker:
-    return yf.Ticker(symbol, session=_session)
-
-
-def _flatten_close(df) -> pd.Series:
-    if df.empty:
-        return pd.Series(dtype=float)
-    if isinstance(df.columns, pd.MultiIndex):
-        if "Close" in df.columns.get_level_values(0):
-            col = df["Close"]
-            return col.iloc[:, 0].dropna() if isinstance(col, pd.DataFrame) else col.dropna()
-    if "Close" in df.columns:
-        return df["Close"].dropna()
-    return pd.Series(dtype=float)
-
-
-def get_current_price(ticker: str) -> Optional[float]:
+def _get(path: str, params: dict = {}) -> Optional[dict]:
     try:
-        t = _ticker(ticker)
-        hist = t.history(period="5d")
-        closes = _flatten_close(hist)
-        if not closes.empty:
-            return round(float(closes.iloc[-1]), 2)
+        r = _sess.get(f"{BASE}{path}", params=params, timeout=10)
+        if r.status_code == 200:
+            return r.json()
         return None
     except Exception:
         return None
 
 
 def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
-    try:
-        t = _ticker(ticker)
-        hist = t.history(period="5d")
-        closes = _flatten_close(hist)
-
-        if closes.empty or len(closes) < 2:
-            return None
-
-        current = round(float(closes.iloc[-1]), 2)
-        prev    = round(float(closes.iloc[-2]), 2)
-
-        volume = 0
-        mktcap = None
-        try:
-            fi     = t.fast_info
-            volume = int(getattr(fi, 'three_month_average_volume', 0) or 0)
-            mktcap = getattr(fi, 'market_cap', None)
-        except Exception:
-            pass
-
-        change     = round(current - prev, 4)
-        change_pct = round((change / prev) * 100, 2) if prev else 0.0
-
-        return schemas.StockQuote(
-            ticker=ticker,
-            current_price=current,
-            previous_close=prev,
-            change=change,
-            change_pct=change_pct,
-            volume=volume,
-            market_cap=mktcap
-        )
-    except Exception:
+    data = _get("/quote", {"symbol": ticker})
+    if not data or data.get("c", 0) == 0:
         return None
+    current = round(float(data["c"]), 2)
+    prev    = round(float(data["pc"]), 2)
+    change  = round(float(data["d"]), 4)
+    pct     = round(float(data["dp"]), 2)
+
+    profile = _get("/stock/profile2", {"symbol": ticker})
+    mktcap  = None
+    if profile and profile.get("marketCapitalization"):
+        mktcap = profile["marketCapitalization"] * 1_000_000
+
+    return schemas.StockQuote(
+        ticker=ticker,
+        current_price=current,
+        previous_close=prev,
+        change=change,
+        change_pct=pct,
+        volume=0,
+        market_cap=mktcap
+    )
+
+
+def get_current_price(ticker: str) -> Optional[float]:
+    data = _get("/quote", {"symbol": ticker})
+    if not data or data.get("c", 0) == 0:
+        return None
+    return round(float(data["c"]), 2)
 
 
 def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
-    try:
-        t      = _ticker(ticker)
-        period = f"{days}d" if days <= 59 else f"{(days // 30) + 1}mo"
-        df     = t.history(period=period)
-        closes = _flatten_close(df)
-        if closes.empty:
-            return []
-        result = []
-        for idx, val in closes.items():
-            try:
-                date_str = idx.date().isoformat() if hasattr(idx, 'date') else str(idx)[:10]
-                result.append(schemas.PricePoint(date=date_str, close=round(float(val), 2)))
-            except Exception:
-                continue
-        return result
-    except Exception:
+    to_ts   = int(datetime.utcnow().timestamp())
+    from_ts = int((datetime.utcnow() - timedelta(days=days + 5)).timestamp())
+
+    data = _get("/stock/candle", {
+        "symbol": ticker,
+        "resolution": "D",
+        "from": from_ts,
+        "to": to_ts
+    })
+
+    if not data or data.get("s") != "ok":
         return []
+
+    result = []
+    for t, c in zip(data["t"], data["c"]):
+        try:
+            date_str = datetime.utcfromtimestamp(t).strftime("%Y-%m-%d")
+            result.append(schemas.PricePoint(date=date_str, close=round(float(c), 2)))
+        except Exception:
+            continue
+    return result[-days:]
 
 
 def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
-    try:
-        t      = _ticker(ticker)
-        df     = t.history(period="6mo")
-        closes = _flatten_close(df)
+    to_ts   = int(datetime.utcnow().timestamp())
+    from_ts = int((datetime.utcnow() - timedelta(days=200)).timestamp())
 
-        if closes.empty or len(closes) < 20:
-            return None
+    data = _get("/stock/candle", {
+        "symbol": ticker,
+        "resolution": "D",
+        "from": from_ts,
+        "to": to_ts
+    })
 
-        ma_20   = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
-        ma_50   = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
-        rsi     = _compute_rsi(closes)
-        log_ret = np.log(closes / closes.shift(1)).dropna()
-        vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
-
-        trend = None
-        if ma_20 and ma_50:
-            trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
-
-        return schemas.StockMetrics(
-            ticker=ticker, ma_20=ma_20, ma_50=ma_50,
-            rsi_14=rsi, volatility=vol, trend=trend
-        )
-    except Exception:
+    if not data or data.get("s") != "ok" or len(data["c"]) < 20:
         return None
+
+    closes = pd.Series(data["c"], dtype=float)
+
+    ma_20 = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
+    ma_50 = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
+    rsi   = _compute_rsi(closes)
+
+    log_ret = np.log(closes / closes.shift(1)).dropna()
+    vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
+
+    trend = None
+    if ma_20 and ma_50:
+        trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
+
+    return schemas.StockMetrics(
+        ticker=ticker, ma_20=ma_20, ma_50=ma_50,
+        rsi_14=rsi, volatility=vol, trend=trend
+    )
 
 
 def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
