@@ -1,874 +1,816 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SPT — Stock Portfolio Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Portfolio Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0B0D11;
+  --s1:#111318;
+  --s2:#161A22;
+  --s3:#1C2130;
+  --s4:#222840;
+  --b1:rgba(255,255,255,0.06);
+  --b2:rgba(255,255,255,0.03);
+  --t1:#F0F2F8;
+  --t2:#8892A4;
+  --t3:#3E4659;
+  --gold:#C9A84C;
+  --goldb:rgba(201,168,76,0.12);
+  --green:#2ECC8A;
+  --red:#E05555;
+  --blue:#4C8EF0;
+  --greenb:rgba(46,204,138,0.1);
+  --redb:rgba(224,85,85,0.1);
+  --blueb:rgba(76,142,240,0.1);
+}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--t1);
+  display:grid;
+  grid-template-columns:60px 220px 1fr;
+  grid-template-rows:100vh;
+  font-size:13px;
+}
 
-    :root {
-      --bg:        #0A0A0A;
-      --panel:     #111111;
-      --panel2:    #161616;
-      --border:    #2A2A2A;
-      --border2:   #1E1E1E;
-      --text:      #E8E4DC;
-      --muted:     #666660;
-      --dim:       #444440;
-      --orange:    #FF6B00;
-      --orange2:   #CC5500;
-      --green:     #00CC66;
-      --red:       #FF3333;
-      --yellow:    #FFB800;
-      --cyan:      #00BBCC;
-      --green-dim: rgba(0,204,102,0.1);
-      --red-dim:   rgba(255,51,51,0.1);
-    }
+/* ── ICON RAIL ── */
+.rail{
+  background:var(--s1);
+  border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:16px 0;
+  gap:4px;
+  z-index:10;
+}
+.rail-logo{
+  width:36px;height:36px;
+  background:var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;
+  flex-shrink:0;
+}
+.rail-logo svg{width:18px;height:18px;stroke:#000;fill:none;stroke-width:2.2;stroke-linecap:round;}
+.rail-btn{
+  width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:8px;
+  transition:all 0.12s;
+  position:relative;
+}
+.rail-btn svg{width:16px;height:16px;stroke:var(--t3);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.rail-btn:hover svg{stroke:var(--t2);}
+.rail-btn.active{background:var(--goldb);}
+.rail-btn.active svg{stroke:var(--gold);}
+.rail-btn::after{
+  content:attr(data-tip);
+  position:absolute;left:52px;
+  background:var(--s3);border:1px solid var(--b1);
+  color:var(--t1);font-size:11px;font-weight:500;
+  padding:5px 10px;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity 0.1s;
+  z-index:100;
+}
+.rail-btn:hover::after{opacity:1;}
 
-    body {
-      font-family: 'IBM Plex Mono', monospace;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      font-size: 13px;
-    }
+/* ── LEFT PANEL ── */
+.lpanel{
+  background:var(--s1);
+  border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.lpanel-header{
+  padding:18px 16px 14px;
+  border-bottom:1px solid var(--b1);
+}
+.lpanel-title{
+  font-size:13px;font-weight:600;color:var(--t1);
+  margin-bottom:2px;
+}
+.lpanel-sub{font-size:11px;color:var(--t3);}
 
-    /* ── TOP BAR ── */
-    .topbar {
-      background: var(--orange);
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      position: sticky;
-      top: 0;
-      z-index: 200;
-    }
-    .topbar-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .topbar-brand {
-      font-family: 'IBM Plex Mono', monospace;
-      font-weight: 600;
-      font-size: 14px;
-      color: #000;
-      letter-spacing: 2px;
-    }
-    .topbar-sep { color: rgba(0,0,0,0.3); }
-    .topbar-sub { font-size: 11px; color: rgba(0,0,0,0.6); letter-spacing: 1px; }
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      font-size: 11px;
-      color: rgba(0,0,0,0.7);
-    }
-    .topbar-time { font-weight: 600; color: #000; letter-spacing: 1px; }
-    .live-badge {
-      background: #000;
-      color: var(--orange);
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 7px;
-      letter-spacing: 1px;
-    }
+/* Portfolio summary card */
+.port-card{
+  margin:12px;
+  background:linear-gradient(135deg,#1a2240 0%,#0f1628 100%);
+  border:1px solid rgba(76,142,240,0.15);
+  padding:16px;
+}
+.port-label{font-size:10px;color:var(--t3);letter-spacing:0.5px;margin-bottom:6px;font-weight:500;}
+.port-value{font-size:22px;font-weight:700;color:var(--t1);margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
+.port-change{
+  font-size:11px;font-family:'JetBrains Mono',monospace;
+  display:flex;gap:8px;align-items:center;
+}
+.port-actions{display:flex;gap:8px;margin-top:12px;}
+.pa-btn{
+  flex:1;padding:7px 0;text-align:center;
+  font-size:11px;font-weight:600;cursor:pointer;
+  transition:all 0.12s;border:none;font-family:'Inter',sans-serif;
+}
+.pa-primary{background:var(--gold);color:#000;}
+.pa-primary:hover{background:#D4AE56;}
+.pa-secondary{background:var(--s3);color:var(--t2);border:1px solid var(--b1);}
+.pa-secondary:hover{border-color:var(--gold);color:var(--gold);}
 
-    /* ── NAV BAR ── */
-    .navbar {
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      height: 36px;
-      display: flex;
-      align-items: stretch;
-    }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      padding: 0 18px;
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 1.2px;
-      color: var(--muted);
-      cursor: pointer;
-      border-right: 1px solid var(--border2);
-      transition: all 0.1s;
-      text-transform: uppercase;
-      user-select: none;
-    }
-    .nav-item:hover { color: var(--text); background: var(--panel2); }
-    .nav-item.active { color: #000; background: var(--orange); }
-    .nav-item .key {
-      background: var(--border);
-      color: var(--muted);
-      font-size: 9px;
-      padding: 1px 4px;
-      margin-left: 6px;
-    }
-    .nav-item.active .key { background: var(--orange2); color: #000; }
-    .navbar-right {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
-      gap: 16px;
-      font-size: 11px;
-      color: var(--muted);
-    }
+/* Watchlist */
+.wl-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 6px;
+}
+.wl-title{font-size:10px;font-weight:600;color:var(--t3);letter-spacing:1px;text-transform:uppercase;}
+.wl-items{flex:1;overflow-y:auto;}
+.wl-items::-webkit-scrollbar{width:3px;}
+.wl-items::-webkit-scrollbar-thumb{background:var(--b1);}
 
-    /* ── MAIN ── */
-    main { padding: 16px; max-width: 1280px; margin: 0 auto; }
+.wl-item{
+  padding:10px 16px;
+  cursor:pointer;
+  transition:background 0.1s;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--b2);
+}
+.wl-item:hover{background:var(--b2);}
+.wl-item.active-ticker{background:var(--goldb);}
 
-    .page { display: none; }
-    .page.active { display: block; }
+.wl-icon{
+  width:30px;height:30px;
+  background:var(--s3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--t2);
+  flex-shrink:0;font-family:'JetBrains Mono',monospace;
+  letter-spacing:-0.5px;
+}
+.wl-info{flex:1;min-width:0;}
+.wl-ticker{font-size:12px;font-weight:600;color:var(--t1);}
+.wl-name{font-size:10px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wl-right{text-align:right;}
+.wl-price{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);}
+.wl-chg{font-family:'JetBrains Mono',monospace;font-size:10px;margin-top:2px;}
 
-    /* ── SECTION HEADER ── */
-    .section-hdr {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      margin-bottom: 12px;
-    }
-    .section-hdr-label {
-      background: var(--orange);
-      color: #000;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      padding: 3px 10px;
-      text-transform: uppercase;
-    }
-    .section-hdr-line {
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-      margin-left: 12px;
-    }
-    .section-hdr-sub {
-      font-size: 10px;
-      color: var(--muted);
-      margin-left: 12px;
-      letter-spacing: 0.5px;
-    }
+.up{color:var(--green);}
+.dn{color:var(--red);}
 
-    /* ── PANELS ── */
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-    }
-    .panel-header {
-      background: var(--panel2);
-      border-bottom: 1px solid var(--border);
-      padding: 6px 12px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1.2px;
-      color: var(--muted);
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .panel-body { padding: 16px; }
+/* Sidebar footer */
+.lpanel-footer{
+  margin-top:auto;
+  padding:12px 16px;
+  border-top:1px solid var(--b1);
+}
+.clock{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:var(--t1);}
+.clock-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+.mkt-status{
+  display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--t3);margin-top:6px;
+}
+.mkt-dot{width:5px;height:5px;border-radius:50%;background:var(--green);}
+.mkt-dot.c{background:var(--red);}
 
-    /* ── SEARCH ── */
-    .search-row {
-      display: flex;
-      gap: 0;
-      margin-bottom: 16px;
-    }
-    .input-label {
-      background: var(--orange);
-      color: #000;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 0 12px;
-      display: flex;
-      align-items: center;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-    }
-    input[type="text"], input[type="number"] {
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      border-left: none;
-      color: var(--text);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 13px;
-      padding: 8px 12px;
-      outline: none;
-      transition: border-color 0.1s;
-      width: 100%;
-    }
-    input[type="text"]::placeholder,
-    input[type="number"]::placeholder { text-transform: none; color: var(--muted); }
-    input[type="text"]:focus,
-    input[type="number"]:focus { border-color: var(--orange); background: #1A1A1A; }
-    .btn {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      padding: 0 20px;
-      border: none;
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: all 0.1s;
-      white-space: nowrap;
-    }
-    .btn-orange { background: var(--orange); color: #000; }
-    .btn-orange:hover { background: #FF8533; }
-    .btn-ghost { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
-    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
-    .btn-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,51,51,0.2); font-size: 10px; padding: 4px 10px; }
-    .btn-red:hover { background: rgba(255,51,51,0.2); }
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;overflow:hidden;}
 
-    /* ── QUOTE DISPLAY ── */
-    .quote-header {
-      display: flex;
-      align-items: baseline;
-      gap: 16px;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .quote-ticker-big { font-size: 32px; font-weight: 600; color: var(--orange); letter-spacing: 2px; }
-    .quote-price-big { font-size: 28px; font-weight: 600; color: var(--text); }
-    .quote-change-big { font-size: 16px; font-weight: 500; }
-    .up { color: var(--green); }
-    .dn { color: var(--red); }
+/* Topbar */
+.topbar{
+  height:52px;
+  background:var(--s1);
+  border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;
+  padding:0 24px;
+  gap:16px;
+  flex-shrink:0;
+}
+.topbar-search{
+  flex:1;max-width:400px;
+  display:flex;
+  background:var(--s2);
+  border:1px solid var(--b1);
+  transition:border-color 0.12s;
+}
+.topbar-search:focus-within{border-color:var(--gold);}
+.topbar-search input{
+  flex:1;background:transparent;border:none;
+  color:var(--t1);font-family:'JetBrains Mono',monospace;
+  font-size:12px;padding:8px 14px;outline:none;
+}
+.topbar-search input::placeholder{color:var(--t3);}
+.topbar-search button{
+  background:var(--gold);color:#000;border:none;
+  font-size:11px;font-weight:700;padding:0 16px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:background 0.12s;
+}
+.topbar-search button:hover{background:#D4AE56;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.live-pill{
+  display:flex;align-items:center;gap:5px;
+  background:var(--greenb);border:1px solid rgba(46,204,138,0.15);
+  padding:4px 10px;font-size:10px;font-weight:600;
+  color:var(--green);letter-spacing:0.5px;
+  font-family:'JetBrains Mono',monospace;
+}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.2;}}
 
-    .data-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      margin-bottom: 16px;
-    }
-    .data-cell {
-      background: var(--panel2);
-      padding: 10px 14px;
-    }
-    .data-cell-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
-    .data-cell-value { font-size: 14px; font-weight: 500; color: var(--text); }
+/* Content */
+.content{flex:1;overflow-y:auto;padding:20px 24px;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--b1);}
 
-    /* ── METRICS ── */
-    .metrics-row {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-    }
-    .metric-cell {
-      background: var(--panel);
-      padding: 12px 14px;
-      text-align: center;
-    }
-    .metric-cell-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
-    .metric-cell-value { font-size: 16px; font-weight: 600; }
-    .trend-bull { color: var(--green); }
-    .trend-bear { color: var(--red); }
-    .trend-neut { color: var(--yellow); }
+.page{display:none;}
+.page.active{display:block;}
 
-    /* ── CHART ── */
-    .chart-wrap { height: 220px; position: relative; margin-top: 12px; }
+/* ── QUOTE PAGE ── */
+.chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:20px;}
+.chips-lbl{font-size:10px;color:var(--t3);margin-right:2px;}
+.chip{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--t2);background:var(--s2);border:1px solid var(--b1);
+  padding:4px 10px;cursor:pointer;transition:all 0.1s;border-radius:2px;
+}
+.chip:hover{color:var(--gold);border-color:var(--gold);background:var(--goldb);}
 
-    /* ── TABLE ── */
-    .bb-table { width: 100%; border-collapse: collapse; }
-    .bb-table thead tr {
-      background: var(--panel2);
-      border-bottom: 1px solid var(--orange);
-    }
-    .bb-table th {
-      padding: 7px 12px;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 1.2px;
-      color: var(--muted);
-      text-align: left;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .bb-table td {
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--border2);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    .bb-table tbody tr:hover { background: var(--panel2); }
-    .bb-table tbody tr:last-child td { border-bottom: none; }
-    .ticker-col { color: var(--orange); font-weight: 600; letter-spacing: 1px; font-size: 13px; }
-    .num-col { font-family: 'IBM Plex Mono', monospace; }
+/* Quote hero */
+.quote-hero{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:16px;margin-bottom:16px;
+}
 
-    /* ── SUMMARY TILES ── */
-    .summary-tiles {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-    }
-    .tile {
-      background: var(--panel);
-      padding: 16px;
-    }
-    .tile-label { font-size: 9px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px; }
-    .tile-value { font-size: 22px; font-weight: 600; }
-    .tile-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.quote-main{
+  background:var(--s1);border:1px solid var(--b1);
+  padding:22px 24px;
+}
+.q-ticker{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--gold);letter-spacing:2px;margin-bottom:10px;
+}
+.q-price{
+  font-size:38px;font-weight:700;color:var(--t1);
+  letter-spacing:-1px;line-height:1;margin-bottom:10px;
+  font-family:'JetBrains Mono',monospace;
+}
+.q-delta{display:flex;gap:12px;align-items:center;margin-bottom:20px;}
+.q-delta span{font-family:'JetBrains Mono',monospace;font-size:14px;}
+.q-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+.q-stat{}
+.q-stat-label{font-size:10px;color:var(--t3);font-weight:500;letter-spacing:0.3px;margin-bottom:3px;}
+.q-stat-val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--t1);}
 
-    /* ── FORM ── */
-    .add-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 0;
-    }
-    .form-field { display: flex; flex-direction: column; }
-    .form-field-label {
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      border-bottom: none;
-      font-size: 9px;
-      letter-spacing: 1px;
-      color: var(--muted);
-      padding: 3px 12px;
-      text-transform: uppercase;
-    }
-    .add-form input {
-      border-right: none;
-    }
-    .add-form > .btn { border-left: 1px solid var(--border); }
+/* Chart panel */
+.chart-panel{
+  background:var(--s1);border:1px solid var(--b1);
+  display:flex;flex-direction:column;
+}
+.chart-panel-head{
+  padding:14px 18px;border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.chart-panel-title{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:0.3px;}
+.chart-wrap{flex:1;min-height:160px;padding:12px 8px 8px;}
 
-    /* ── STATES ── */
-    .bb-empty {
-      padding: 40px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      border: 1px dashed var(--border);
-    }
-    .bb-loading {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 11px;
-      padding: 20px 0;
-    }
-    .bb-spinner {
-      width: 14px; height: 14px;
-      border: 1px solid var(--border);
-      border-top-color: var(--orange);
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .bb-error {
-      background: var(--red-dim);
-      border: 1px solid rgba(255,51,51,0.3);
-      color: var(--red);
-      padding: 8px 14px;
-      font-size: 11px;
-      letter-spacing: 0.3px;
-      margin-top: 8px;
-    }
-    .bb-success {
-      background: var(--green-dim);
-      border: 1px solid rgba(0,204,102,0.3);
-      color: var(--green);
-      padding: 8px 14px;
-      font-size: 11px;
-      letter-spacing: 0.3px;
-      margin-top: 8px;
-    }
+/* Metrics row */
+.metrics-row{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:0;border:1px solid var(--b1);
+  margin-bottom:16px;
+}
+.mc{
+  background:var(--s1);padding:14px 16px;
+  border-right:1px solid var(--b1);
+}
+.mc:last-child{border-right:none;}
+.mc-label{font-size:9px;font-weight:600;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;}
+.mc-val{font-family:'JetBrains Mono',monospace;font-size:16px;margin-bottom:3px;}
+.mc-sub{font-size:10px;color:var(--t3);}
+.rsi-track{height:3px;background:var(--s3);margin-top:6px;position:relative;}
+.rsi-fill{height:100%;transition:width 0.3s;}
+.badge{
+  display:inline-block;font-family:'JetBrains Mono',monospace;
+  font-size:10px;padding:3px 8px;border-radius:2px;margin-top:2px;
+}
+.bg{background:var(--greenb);color:var(--green);border:1px solid rgba(46,204,138,0.15);}
+.br{background:var(--redb);color:var(--red);border:1px solid rgba(224,85,85,0.15);}
+.bn{background:var(--goldb);color:var(--gold);border:1px solid rgba(201,168,76,0.15);}
 
-    .ticker-tag {
-      display: inline-block;
-      background: rgba(255,107,0,0.1);
-      color: var(--orange);
-      font-size: 10px;
-      padding: 2px 6px;
-      letter-spacing: 0.5px;
-      margin-right: 4px;
-      margin-bottom: 4px;
-      cursor: pointer;
-      border: 1px solid rgba(255,107,0,0.2);
-      transition: all 0.1s;
-    }
-    .ticker-tag:hover { background: rgba(255,107,0,0.2); }
-  </style>
+/* ── HOLDINGS ── */
+.add-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;}
+.fg{display:flex;flex-direction:column;}
+.fg-lbl{
+  font-size:9px;font-weight:600;color:var(--t3);letter-spacing:1px;text-transform:uppercase;
+  padding:5px 12px;background:var(--s2);border:1px solid var(--b1);border-bottom:none;
+}
+.fg input{
+  background:var(--s1);border:1px solid var(--b1);border-right:none;
+  color:var(--t1);font-family:'JetBrains Mono',monospace;
+  font-size:12px;padding:10px 12px;outline:none;transition:border-color 0.12s;
+}
+.fg input:focus{border-color:var(--gold);background:var(--s2);}
+.fg input::placeholder{color:var(--t3);font-size:11px;}
+.add-btn{
+  background:var(--gold);color:#000;border:none;
+  font-size:12px;font-weight:700;padding:0 22px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:background 0.12s;
+}
+.add-btn:hover{background:#D4AE56;}
+
+/* ── TABLES ── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl thead tr{border-bottom:1px solid var(--b1);}
+.tbl th{
+  padding:9px 16px;
+  font-size:9px;font-weight:600;color:var(--t3);
+  letter-spacing:1px;text-transform:uppercase;
+  text-align:left;white-space:nowrap;background:var(--s2);
+}
+.tbl td{padding:12px 16px;border-bottom:1px solid var(--b2);font-size:12px;}
+.tbl tbody tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover{background:var(--s2);}
+.tc{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:600;font-size:12px;}
+.tm{font-family:'JetBrains Mono',monospace;color:var(--t2);font-size:12px;}
+
+/* Tiles */
+.tile-row{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:16px;}
+.tile{background:var(--s1);border:1px solid var(--b1);border-right:none;padding:18px 20px;}
+.tile:last-child{border-right:1px solid var(--b1);}
+.tile-lbl{font-size:9px;font-weight:600;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.tile-val{font-size:22px;font-weight:700;margin-bottom:3px;font-family:'JetBrains Mono',monospace;}
+.tile-sub{font-size:10px;color:var(--t3);}
+
+/* Panel */
+.panel{background:var(--s1);border:1px solid var(--b1);margin-bottom:16px;}
+.ph{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.pt{font-size:10px;font-weight:600;color:var(--t3);letter-spacing:1px;text-transform:uppercase;}
+.pb{padding:16px;}
+.pb-f{padding:0;}
+
+/* States */
+.ld{display:flex;align-items:center;gap:10px;color:var(--t3);font-size:11px;padding:20px 16px;font-family:'JetBrains Mono',monospace;}
+.sp{width:14px;height:14px;border:1.5px solid var(--s3);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty{padding:40px 16px;text-align:center;color:var(--t3);font-size:11px;font-family:'JetBrains Mono',monospace;}
+.err{background:var(--redb);border:1px solid rgba(224,85,85,0.15);color:var(--red);padding:9px 14px;font-size:11px;margin-top:10px;font-family:'JetBrains Mono',monospace;}
+.ok{background:var(--greenb);border:1px solid rgba(46,204,138,0.15);color:var(--green);padding:9px 14px;font-size:11px;margin-top:10px;font-family:'JetBrains Mono',monospace;}
+.del-btn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red);background:var(--redb);border:1px solid rgba(224,85,85,0.1);padding:4px 10px;cursor:pointer;transition:background 0.1s;}
+.del-btn:hover{background:rgba(224,85,85,0.18);}
+</style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-left">
-    <span class="topbar-brand">SPT</span>
-    <span class="topbar-sep">|</span>
-    <span class="topbar-sub">STOCK PORTFOLIO TRACKER</span>
+<!-- ICON RAIL -->
+<div class="rail">
+  <div class="rail-logo">
+    <svg viewBox="0 0 18 18"><polyline points="2,14 6,8 10,11 16,3"/><circle cx="16" cy="3" r="1.5" fill="#000" stroke="none"/></svg>
   </div>
-  <div class="topbar-right">
-    <span id="top-clock" class="topbar-time">--:--:--</span>
-    <span class="live-badge">LIVE</span>
+  <div class="rail-btn active" data-tip="Market Data" onclick="showPage('quote',this)">
+    <svg viewBox="0 0 16 16"><polyline points="1,11 5,6 8,9 15,2"/></svg>
   </div>
-</div>
-
-<!-- NAV -->
-<div class="navbar">
-  <div class="nav-item active" onclick="showPage('quote', this)">
-    Quote <span class="key">F1</span>
+  <div class="rail-btn" data-tip="Holdings" onclick="showPage('portfolio',this)">
+    <svg viewBox="0 0 16 16"><rect x="1" y="5" width="14" height="10" rx="1"/><path d="M5 5V4a3 3 0 016 0v1"/></svg>
   </div>
-  <div class="nav-item" onclick="showPage('portfolio', this)">
-    Portfolio <span class="key">F2</span>
-  </div>
-  <div class="nav-item" onclick="showPage('summary', this)">
-    P&amp;L <span class="key">F3</span>
-  </div>
-  <div class="navbar-right">
-    <span id="market-status" style="color:var(--green);font-size:10px;letter-spacing:1px">● MARKET OPEN</span>
+  <div class="rail-btn" data-tip="P&L Analysis" onclick="showPage('summary',this)">
+    <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="0.5"/><rect x="9" y="1" width="6" height="6" rx="0.5"/><rect x="1" y="9" width="6" height="6" rx="0.5"/><rect x="9" y="9" width="6" height="6" rx="0.5"/></svg>
   </div>
 </div>
 
-<main>
+<!-- LEFT PANEL -->
+<div class="lpanel">
+  <div class="lpanel-header">
+    <div class="lpanel-title">Portfolio Intelligence</div>
+    <div class="lpanel-sub">Equity Research Platform</div>
+  </div>
 
-  <!-- ── QUOTE PAGE ── -->
-  <div class="page active" id="page-quote">
-    <div class="section-hdr">
-      <div class="section-hdr-label">Market Data</div>
-      <div class="section-hdr-line"></div>
-      <div class="section-hdr-sub">Real-time equity quotes &amp; technical indicators</div>
+  <!-- Portfolio card -->
+  <div class="port-card" id="port-summary-card">
+    <div class="port-label">TOTAL PORTFOLIO VALUE</div>
+    <div class="port-value" id="ps-value">—</div>
+    <div class="port-change">
+      <span id="ps-pnl" style="color:var(--t3)">Loading…</span>
     </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <span>SECURITY LOOKUP</span>
-        <span style="color:var(--dim)">Enter ticker symbol and press EXECUTE</span>
-      </div>
-      <div class="panel-body">
-        <div class="search-row">
-          <div class="input-label">TICKER</div>
-          <input type="text" id="quote-input" placeholder="e.g. AAPL  MSFT  TSLA  RELIANCE.NS" maxlength="20"
-            onkeydown="if(event.key==='Enter') fetchQuote()"/>
-          <button class="btn btn-orange" onclick="fetchQuote()" style="min-width:110px">EXECUTE</button>
-        </div>
-
-        <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:0">
-          <span style="font-size:10px;color:var(--muted);margin-right:8px;line-height:24px">QUICK:</span>
-          <span class="ticker-tag" onclick="quickQuote('AAPL')">AAPL</span>
-          <span class="ticker-tag" onclick="quickQuote('MSFT')">MSFT</span>
-          <span class="ticker-tag" onclick="quickQuote('GOOGL')">GOOGL</span>
-          <span class="ticker-tag" onclick="quickQuote('AMZN')">AMZN</span>
-          <span class="ticker-tag" onclick="quickQuote('TSLA')">TSLA</span>
-          <span class="ticker-tag" onclick="quickQuote('NVDA')">NVDA</span>
-          <span class="ticker-tag" onclick="quickQuote('JPM')">JPM</span>
-          <span class="ticker-tag" onclick="quickQuote('GS')">GS</span>
-        </div>
-
-        <div id="quote-result"></div>
-      </div>
-    </div>
-
-    <div id="metrics-panel" style="display:none" class="panel">
-      <div class="panel-header"><span>TECHNICAL INDICATORS</span></div>
-      <div class="panel-body" id="metrics-result"></div>
-    </div>
-
-    <div id="history-panel" style="display:none" class="panel">
-      <div class="panel-header">
-        <span>PRICE HISTORY</span>
-        <span style="color:var(--dim)">30-DAY CLOSE</span>
-      </div>
-      <div class="panel-body">
-        <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
-      </div>
+    <div class="port-actions">
+      <button class="pa-btn pa-primary" onclick="showPage('portfolio', document.querySelectorAll('.rail-btn')[1])">Add Position</button>
+      <button class="pa-btn pa-secondary" onclick="showPage('summary', document.querySelectorAll('.rail-btn')[2])">View P&amp;L</button>
     </div>
   </div>
 
-  <!-- ── PORTFOLIO PAGE ── -->
-  <div class="page" id="page-portfolio">
-    <div class="section-hdr">
-      <div class="section-hdr-label">Portfolio</div>
-      <div class="section-hdr-line"></div>
-      <div class="section-hdr-sub">Manage equity holdings</div>
-    </div>
+  <!-- Watchlist -->
+  <div class="wl-header">
+    <div class="wl-title">Watchlist</div>
+  </div>
+  <div class="wl-items" id="watchlist">
+    <!-- populated by JS -->
+  </div>
 
-    <div class="panel">
-      <div class="panel-header"><span>ADD HOLDING</span></div>
-      <div class="panel-body">
-        <div class="add-form">
-          <div class="form-field">
-            <div class="form-field-label">Ticker</div>
-            <input type="text" id="add-ticker" placeholder="AAPL or RELIANCE.NS" maxlength="20" style="border-right:none" onkeydown="if(event.key==='Enter') addHolding()"/>
+  <div class="lpanel-footer">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-sub" id="clock-date"></div>
+    <div class="mkt-status">
+      <div class="mkt-dot" id="mkt-dot"></div>
+      <span id="mkt-label">NYSE</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-search">
+      <input type="text" id="quote-input" placeholder="Search ticker — AAPL, MSFT, JPM, RELIANCE.NS …" maxlength="20"
+        onkeydown="if(event.key==='Enter') fetchQuote()"/>
+      <button onclick="fetchQuote()">Go</button>
+    </div>
+    <div class="topbar-right">
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- QUOTE PAGE -->
+    <div class="page active" id="page-quote">
+      <div class="chips">
+        <span class="chips-lbl">Quick access —</span>
+        <span class="chip" onclick="q('AAPL')">AAPL</span>
+        <span class="chip" onclick="q('MSFT')">MSFT</span>
+        <span class="chip" onclick="q('GOOGL')">GOOGL</span>
+        <span class="chip" onclick="q('AMZN')">AMZN</span>
+        <span class="chip" onclick="q('TSLA')">TSLA</span>
+        <span class="chip" onclick="q('NVDA')">NVDA</span>
+        <span class="chip" onclick="q('JPM')">JPM</span>
+        <span class="chip" onclick="q('GS')">GS</span>
+        <span class="chip" onclick="q('RELIANCE.NS')">RELIANCE.NS</span>
+        <span class="chip" onclick="q('TCS.NS')">TCS.NS</span>
+      </div>
+
+      <div id="qr-state"></div>
+
+      <div id="quote-hero" class="quote-hero" style="display:none">
+        <div class="quote-main">
+          <div class="q-ticker" id="q-ticker"></div>
+          <div class="q-price" id="q-price"></div>
+          <div class="q-delta" id="q-delta"></div>
+          <div class="q-stats">
+            <div class="q-stat"><div class="q-stat-label">Prev. Close</div><div class="q-stat-val" id="q-prev"></div></div>
+            <div class="q-stat"><div class="q-stat-label">Volume</div><div class="q-stat-val" id="q-vol"></div></div>
+            <div class="q-stat"><div class="q-stat-label">Market Cap</div><div class="q-stat-val" id="q-cap"></div></div>
+            <div class="q-stat"><div class="q-stat-label">Day Return</div><div class="q-stat-val" id="q-ret"></div></div>
           </div>
-          <div class="form-field">
-            <div class="form-field-label">Shares</div>
-            <input type="number" id="add-shares" placeholder="10" min="0.01" step="0.01" style="border-right:none" onkeydown="if(event.key==='Enter') addHolding()"/>
-          </div>
-          <div class="form-field">
-            <div class="form-field-label">Avg Buy Price ($)</div>
-            <input type="number" id="add-price" placeholder="150.00" min="0.01" step="0.01" onkeydown="if(event.key==='Enter') addHolding()"/>
-          </div>
-          <button class="btn btn-orange" onclick="addHolding()" style="height:100%;padding:0 24px">ADD</button>
         </div>
-        <div id="add-msg"></div>
+        <div class="chart-panel">
+          <div class="chart-panel-head">
+            <div class="chart-panel-title">30-Day Price History</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3)" id="chart-rng"></div>
+          </div>
+          <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="metrics-row" id="metrics-row" style="display:none">
+        <div class="mc"><div class="mc-label">MA-20</div><div class="mc-val" style="color:var(--blue)" id="m-ma20"></div><div class="mc-sub">20-day moving avg</div></div>
+        <div class="mc"><div class="mc-label">MA-50</div><div class="mc-val" style="color:var(--blue)" id="m-ma50"></div><div class="mc-sub">50-day moving avg</div></div>
+        <div class="mc">
+          <div class="mc-label">RSI-14</div>
+          <div class="mc-val" id="m-rsi"></div>
+          <div class="mc-sub" id="m-rsi-lbl"></div>
+          <div class="rsi-track"><div class="rsi-fill" id="rsi-fill"></div></div>
+        </div>
+        <div class="mc"><div class="mc-label">Volatility</div><div class="mc-val" id="m-vol"></div><div class="mc-sub">30d annualised</div></div>
+        <div class="mc"><div class="mc-label">Trend Signal</div><div id="m-trend"></div></div>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header">
-        <span>HOLDINGS</span>
-        <span id="holdings-count" style="color:var(--dim)"></span>
+    <!-- HOLDINGS PAGE -->
+    <div class="page" id="page-portfolio">
+      <div class="panel">
+        <div class="ph"><span class="pt">Add Position</span></div>
+        <div class="pb">
+          <div class="add-form">
+            <div class="fg"><div class="fg-lbl">Ticker</div><input type="text" id="add-ticker" placeholder="AAPL" maxlength="20" onkeydown="if(event.key==='Enter')addHolding()"/></div>
+            <div class="fg"><div class="fg-lbl">Shares</div><input type="number" id="add-shares" placeholder="10.00" min="0.01" step="0.01" onkeydown="if(event.key==='Enter')addHolding()"/></div>
+            <div class="fg"><div class="fg-lbl">Avg. Cost (USD)</div><input type="number" id="add-price" placeholder="150.00" min="0.01" step="0.01" onkeydown="if(event.key==='Enter')addHolding()"/></div>
+            <button class="add-btn" onclick="addHolding()">Add</button>
+          </div>
+          <div id="add-msg"></div>
+        </div>
       </div>
-      <div class="panel-body" style="padding:0">
-        <div id="holdings-table"></div>
+      <div class="panel">
+        <div class="ph"><span class="pt">Current Positions</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)" id="h-count"></span></div>
+        <div class="pb-f" id="h-table"></div>
       </div>
     </div>
+
+    <!-- P&L PAGE -->
+    <div class="page" id="page-summary">
+      <div id="s-tiles"></div>
+      <div class="panel">
+        <div class="ph"><span class="pt">Position Breakdown</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3)">Unrealised at live prices</span></div>
+        <div class="pb-f" id="s-table"></div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- ── P&L PAGE ── -->
-  <div class="page" id="page-summary">
-    <div class="section-hdr">
-      <div class="section-hdr-label">P&amp;L Analysis</div>
-      <div class="section-hdr-line"></div>
-      <div class="section-hdr-sub">Live portfolio performance with real-time pricing</div>
-    </div>
-
-    <div id="summary-tiles" style="display:none"></div>
-
-    <div class="panel">
-      <div class="panel-header"><span>POSITION BREAKDOWN</span></div>
-      <div class="panel-body" style="padding:0">
-        <div id="summary-table"></div>
-      </div>
-    </div>
-  </div>
-
-</main>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-  const API = '';
+const API='';
+const WL=[
+  {t:'AAPL',n:'Apple Inc.'},
+  {t:'MSFT',n:'Microsoft'},
+  {t:'GOOGL',n:'Alphabet'},
+  {t:'JPM',n:'JPMorgan Chase'},
+  {t:'NVDA',n:'NVIDIA'},
+  {t:'GS',n:'Goldman Sachs'},
+  {t:'AMZN',n:'Amazon'},
+];
 
-  // clock
-  setInterval(() => {
-    const now = new Date();
-    document.getElementById('top-clock').textContent =
-      now.toLocaleTimeString('en-US', {hour12: false});
-    const h = now.getUTCHours() - 5; // EST approx
-    const isOpen = h >= 9 && h < 16 && now.getDay() > 0 && now.getDay() < 6;
-    const ms = document.getElementById('market-status');
-    ms.textContent = isOpen ? '● MARKET OPEN' : '● MARKET CLOSED';
-    ms.style.color = isOpen ? 'var(--green)' : 'var(--red)';
-  }, 1000);
+// ── CLOCK ────────────────────────────────────────────────────────────────────
+function tick(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('clock-date').textContent=now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  const d=now.getDay(),h=now.getUTCHours()-5;
+  const open=d>=1&&d<=5&&h>=9&&h<16;
+  document.getElementById('mkt-dot').className='mkt-dot'+(open?'':' c');
+  document.getElementById('mkt-label').textContent=open?'NYSE Open':'NYSE Closed';
+}
+setInterval(tick,1000);tick();
 
-  function showPage(name, el) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.getElementById('page-' + name).classList.add('active');
-    el.classList.add('active');
-    if (name === 'portfolio') loadHoldings();
-    if (name === 'summary') loadSummary();
-  }
+// ── WATCHLIST ─────────────────────────────────────────────────────────────────
+const wlEl=document.getElementById('watchlist');
+WL.forEach(({t,n})=>{
+  const d=document.createElement('div');
+  d.className='wl-item';d.id='wli-'+t;
+  d.onclick=()=>goQ(t);
+  d.innerHTML=`
+    <div class="wl-icon">${t.slice(0,3)}</div>
+    <div class="wl-info"><div class="wl-ticker">${t}</div><div class="wl-name">${n}</div></div>
+    <div class="wl-right"><div class="wl-price" id="wp-${t}">—</div><div class="wl-chg" id="wc-${t}">—</div></div>`;
+  wlEl.appendChild(d);
+});
 
-  function fmt(n) {
-    if (n == null) return '—';
-    return Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-  }
-  function fmtPct(n) { return n == null ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
-  function fmtLarge(n) {
-    if (!n) return '—';
-    if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
-    if (n >= 1e9)  return '$' + (n/1e9).toFixed(2) + 'B';
-    if (n >= 1e6)  return '$' + (n/1e6).toFixed(2) + 'M';
-    return '$' + fmt(n);
-  }
-
-  // ── QUOTE ──────────────────────────────────────────────────────────────────
-  let priceChart = null;
-
-  function quickQuote(ticker) {
-    document.getElementById('quote-input').value = ticker;
-    fetchQuote();
-  }
-
-  async function fetchQuote() {
-    const ticker = document.getElementById('quote-input').value.trim().toUpperCase().replace(/\.NS$/i, '.NS').replace(/\.BO$/i, '.BO');
-    if (!ticker) return;
-    const el = document.getElementById('quote-result');
-    el.innerHTML = '<div class="bb-loading"><div class="bb-spinner"></div> FETCHING ' + ticker + '...</div>';
-    document.getElementById('metrics-panel').style.display = 'none';
-    document.getElementById('history-panel').style.display = 'none';
-
-    try {
-      const [qRes, mRes, hRes] = await Promise.all([
-        fetch(`${API}/quote/${ticker}`),
-        fetch(`${API}/metrics/${ticker}`),
-        fetch(`${API}/history/${ticker}?days=30`)
-      ]);
-
-      if (!qRes.ok) {
-        el.innerHTML = `<div class="bb-error">NO DATA — TICKER "${ticker}" NOT FOUND OR MARKET UNAVAILABLE</div>`;
-        return;
+async function loadWL(){
+  for(const {t} of WL){
+    try{
+      const r=await fetch(`${API}/quote/${t}`);
+      if(r.ok){
+        const d=await r.json();
+        const up=d.change_pct>=0;
+        const wp=document.getElementById('wp-'+t);
+        const wc=document.getElementById('wc-'+t);
+        if(wp)wp.textContent='$'+$f(d.current_price);
+        if(wc){wc.textContent=(up?'+':'')+d.change_pct.toFixed(2)+'%';wc.className='wl-chg '+(up?'up':'dn');}
       }
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,200));
+  }
+}
+loadWL();setInterval(loadWL,60000);
 
-      const q = await qRes.json();
-      const up = q.change_pct >= 0;
-
-      el.innerHTML = `
-        <div class="quote-header">
-          <span class="quote-ticker-big">${q.ticker}</span>
-          <span class="quote-price-big">$${fmt(q.current_price)}</span>
-          <span class="quote-change-big ${up ? 'up' : 'dn'}">
-            ${up ? '▲' : '▼'} ${up ? '+' : ''}${fmt(q.change)} (${fmtPct(q.change_pct)})
-          </span>
-        </div>
-        <div class="data-grid">
-          <div class="data-cell">
-            <div class="data-cell-label">Prev Close</div>
-            <div class="data-cell-value">$${fmt(q.previous_close)}</div>
-          </div>
-          <div class="data-cell">
-            <div class="data-cell-label">Volume</div>
-            <div class="data-cell-value">${Number(q.volume).toLocaleString()}</div>
-          </div>
-          <div class="data-cell">
-            <div class="data-cell-label">Market Cap</div>
-            <div class="data-cell-value">${fmtLarge(q.market_cap)}</div>
-          </div>
-          <div class="data-cell">
-            <div class="data-cell-label">Day Change</div>
-            <div class="data-cell-value ${up ? 'up' : 'dn'}">${up?'+':''}${fmt(q.change)}</div>
-          </div>
-          <div class="data-cell">
-            <div class="data-cell-label">Return</div>
-            <div class="data-cell-value ${up ? 'up' : 'dn'}">${fmtPct(q.change_pct)}</div>
-          </div>
-        </div>`;
-
-      if (mRes.ok) {
-        const m = await mRes.json();
-        document.getElementById('metrics-panel').style.display = 'block';
-        const tClass = m.trend === 'Bullish' ? 'trend-bull' : m.trend === 'Bearish' ? 'trend-bear' : 'trend-neut';
-        document.getElementById('metrics-result').innerHTML = `
-          <div class="metrics-row">
-            <div class="metric-cell">
-              <div class="metric-cell-label">MA-20</div>
-              <div class="metric-cell-value" style="color:var(--cyan)">${m.ma_20 ? '$'+fmt(m.ma_20) : '—'}</div>
-            </div>
-            <div class="metric-cell">
-              <div class="metric-cell-label">MA-50</div>
-              <div class="metric-cell-value" style="color:var(--cyan)">${m.ma_50 ? '$'+fmt(m.ma_50) : '—'}</div>
-            </div>
-            <div class="metric-cell">
-              <div class="metric-cell-label">RSI-14</div>
-              <div class="metric-cell-value" style="color:${m.rsi_14>70?'var(--red)':m.rsi_14<30?'var(--green)':'var(--yellow)'}">
-                ${m.rsi_14 ?? '—'}
-              </div>
-            </div>
-            <div class="metric-cell">
-              <div class="metric-cell-label">Volatility (Ann.)</div>
-              <div class="metric-cell-value" style="color:var(--text)">${m.volatility ? m.volatility+'%' : '—'}</div>
-            </div>
-            <div class="metric-cell">
-              <div class="metric-cell-label">Trend Signal</div>
-              <div class="metric-cell-value ${tClass}">${m.trend ?? '—'}</div>
-            </div>
-          </div>`;
-      }
-
-      if (hRes.ok) {
-        const history = await hRes.json();
-        if (history.length > 0) {
-          document.getElementById('history-panel').style.display = 'block';
-          const labels = history.map(p => p.date.slice(5));
-          const prices = history.map(p => p.close);
-          if (priceChart) priceChart.destroy();
-          priceChart = new Chart(document.getElementById('price-chart'), {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [{
-                data: prices,
-                borderColor: up ? '#00CC66' : '#FF3333',
-                backgroundColor: up ? 'rgba(0,204,102,0.05)' : 'rgba(255,51,51,0.05)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.2,
-                fill: true,
-              }]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: {
-                  grid: { color: 'rgba(255,255,255,0.03)' },
-                  ticks: { maxTicksLimit: 8, font: { family: 'IBM Plex Mono', size: 10 }, color: '#555' }
-                },
-                y: {
-                  grid: { color: 'rgba(255,255,255,0.03)' },
-                  ticks: { font: { family: 'IBM Plex Mono', size: 10 }, color: '#555', callback: v => '$'+v }
-                }
-              }
-            }
-          });
-        }
-      }
-
-    } catch(e) {
-      el.innerHTML = '<div class="bb-error">CONNECTION ERROR — ENSURE API SERVER IS RUNNING</div>';
+// Portfolio summary in sidebar
+async function loadPortSummary(){
+  try{
+    const r=await fetch(`${API}/portfolio/summary`);
+    if(r.ok){
+      const s=await r.json();
+      const up=s.total_pnl>=0;
+      document.getElementById('ps-value').textContent='$'+$f(s.total_current_value);
+      const pnlEl=document.getElementById('ps-pnl');
+      pnlEl.textContent=(up?'+':'−')+'$'+$f(Math.abs(s.total_pnl))+' ('+$p(s.total_pnl_pct)+')';
+      pnlEl.style.color=up?'var(--green)':'var(--red)';
     }
-  }
+  }catch(e){}
+}
+loadPortSummary();
 
-  // ── PORTFOLIO ──────────────────────────────────────────────────────────────
-  async function loadHoldings() {
-    const el = document.getElementById('holdings-table');
-    el.innerHTML = '<div class="bb-loading" style="padding:16px"><div class="bb-spinner"></div> LOADING PORTFOLIO...</div>';
-    try {
-      const res = await fetch(`${API}/portfolio`);
-      const holdings = await res.json();
-      document.getElementById('holdings-count').textContent = holdings.length + ' POSITION' + (holdings.length !== 1 ? 'S' : '');
-      if (!holdings.length) {
-        el.innerHTML = '<div class="bb-empty">NO POSITIONS — ADD YOUR FIRST HOLDING ABOVE</div>';
-        return;
-      }
-      el.innerHTML = `
-        <table class="bb-table">
-          <thead><tr>
-            <th>Ticker</th><th>Shares</th><th>Avg Buy</th><th>Added</th><th></th>
-          </tr></thead>
-          <tbody>
-            ${holdings.map(h => `
-              <tr>
-                <td class="ticker-col">${h.ticker}</td>
-                <td class="num-col">${h.shares}</td>
-                <td class="num-col">$${fmt(h.avg_buy_price)}</td>
-                <td style="color:var(--muted);font-size:11px">${h.created_at ? new Date(h.created_at).toLocaleDateString() : '—'}</td>
-                <td><button class="btn btn-red" onclick="removeHolding('${h.ticker}')">REMOVE</button></td>
-              </tr>`).join('')}
-          </tbody>
-        </table>`;
-    } catch(e) {
-      el.innerHTML = '<div class="bb-error" style="margin:16px">FAILED TO LOAD HOLDINGS</div>';
-    }
-  }
+// ── PAGE NAV ──────────────────────────────────────────────────────────────────
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.rail-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(el)el.classList.add('active');
+  if(name==='portfolio')loadHoldings();
+  if(name==='summary'){loadSummary();loadPortSummary();}
+}
 
-  async function addHolding() {
-    const rawTicker = document.getElementById('add-ticker').value.trim();
-    const ticker = rawTicker.toUpperCase().replace(/\.NS$/i, '.NS').replace(/\.BO$/i, '.BO');
-    const shares = parseFloat(document.getElementById('add-shares').value);
-    const price  = parseFloat(document.getElementById('add-price').value);
-    const msg    = document.getElementById('add-msg');
+function goQ(t){
+  document.getElementById('quote-input').value=t;
+  showPage('quote',document.querySelectorAll('.rail-btn')[0]);
+  fetchQuote();
+}
 
-    if (!ticker || !shares || !price) {
-      msg.innerHTML = '<div class="bb-error">ERROR — ALL FIELDS REQUIRED</div>';
+// ── FORMAT ───────────────────────────────────────────────────────────────────
+const $f=n=>n==null?'—':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const $p=n=>n==null?'—':(n>=0?'+':'')+n.toFixed(2)+'%';
+const $v=n=>n==null?'—':Number(n).toLocaleString('en-US');
+const $mc=n=>{
+  if(!n)return'—';
+  if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';
+  if(n>=1e9)return'$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return'$'+(n/1e6).toFixed(2)+'M';
+  return'$'+$f(n);
+};
+
+// ── QUOTE ────────────────────────────────────────────────────────────────────
+let chart=null;
+function q(t){document.getElementById('quote-input').value=t;fetchQuote();}
+
+async function fetchQuote(){
+  const raw=document.getElementById('quote-input').value.trim();
+  const ticker=raw.toUpperCase().replace(/\.NS$/i,'.NS').replace(/\.BO$/i,'.BO');
+  if(!ticker)return;
+
+  // Highlight active watchlist item
+  document.querySelectorAll('.wl-item').forEach(e=>e.classList.remove('active-ticker'));
+  const wli=document.getElementById('wli-'+ticker);
+  if(wli)wli.classList.add('active-ticker');
+
+  const st=document.getElementById('qr-state');
+  document.getElementById('quote-hero').style.display='none';
+  document.getElementById('metrics-row').style.display='none';
+  st.innerHTML=`<div class="ld"><div class="sp"></div>Fetching ${ticker}…</div>`;
+
+  try{
+    const[qR,mR,hR]=await Promise.all([
+      fetch(`${API}/quote/${ticker}`),
+      fetch(`${API}/metrics/${ticker}`),
+      fetch(`${API}/history/${ticker}?days=30`)
+    ]);
+
+    if(!qR.ok){
+      st.innerHTML=`<div class="err">No data for "${ticker}" — verify the symbol and try again.</div>`;
       return;
     }
+    st.innerHTML='';
 
-    msg.innerHTML = '<div class="bb-loading"><div class="bb-spinner"></div> PROCESSING...</div>';
-    try {
-      const res = await fetch(`${API}/portfolio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker, shares, avg_buy_price: price })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        msg.innerHTML = `<div class="bb-error">ERROR — ${data.detail.toUpperCase()}</div>`;
-        return;
+    const qd=await qR.json();
+    const up=qd.change_pct>=0;
+    const cls=up?'up':'dn';
+
+    document.getElementById('q-ticker').textContent=qd.ticker;
+    document.getElementById('q-price').textContent='$'+$f(qd.current_price);
+    document.getElementById('q-delta').innerHTML=`
+      <span class="${cls}">${up?'▲':'▼'} ${up?'+':''}${$f(qd.change)}</span>
+      <span class="${cls}">${$p(qd.change_pct)}</span>
+      <span style="color:var(--t3);font-size:11px">vs prev close</span>`;
+    document.getElementById('q-prev').textContent='$'+$f(qd.previous_close);
+    document.getElementById('q-vol').textContent=$v(qd.volume);
+    document.getElementById('q-cap').textContent=$mc(qd.market_cap);
+    document.getElementById('q-ret').innerHTML=`<span class="${cls}">${$p(qd.change_pct)}</span>`;
+
+    document.getElementById('quote-hero').style.display='grid';
+
+    // Chart
+    if(hR.ok){
+      const hist=await hR.json();
+      if(hist.length>0){
+        const labels=hist.map(p=>p.date.slice(5));
+        const prices=hist.map(p=>p.close);
+        const mn=Math.min(...prices),mx=Math.max(...prices);
+        document.getElementById('chart-rng').textContent='$'+$f(mn)+' — $'+$f(mx);
+        if(chart)chart.destroy();
+        chart=new Chart(document.getElementById('price-chart'),{
+          type:'line',
+          data:{labels,datasets:[{
+            data:prices,
+            borderColor:up?'#2ECC8A':'#E05555',
+            backgroundColor:up?'rgba(46,204,138,0.06)':'rgba(224,85,85,0.06)',
+            borderWidth:1.5,pointRadius:0,tension:0.3,fill:true
+          }]},
+          options:{
+            responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:{
+              backgroundColor:'#1C2130',borderColor:'rgba(255,255,255,0.06)',borderWidth:1,
+              titleColor:'#8892A4',bodyColor:'#F0F2F8',
+              bodyFont:{family:'JetBrains Mono',size:11},
+              callbacks:{label:ctx=>' $'+$f(ctx.parsed.y)}
+            }},
+            scales:{
+              x:{grid:{color:'rgba(255,255,255,0.02)'},ticks:{maxTicksLimit:8,font:{family:'JetBrains Mono',size:10},color:'#3E4659'}},
+              y:{grid:{color:'rgba(255,255,255,0.02)'},ticks:{font:{family:'JetBrains Mono',size:10},color:'#3E4659',callback:v=>'$'+v}}
+            }
+          }
+        });
       }
-      msg.innerHTML = `<div class="bb-success">SUCCESS — ${ticker} ADDED TO PORTFOLIO</div>`;
-      document.getElementById('add-ticker').value = '';
-      document.getElementById('add-shares').value = '';
-      document.getElementById('add-price').value  = '';
-      loadHoldings();
-      setTimeout(() => msg.innerHTML = '', 3000);
-    } catch(e) {
-      msg.innerHTML = '<div class="bb-error">CONNECTION ERROR</div>';
     }
-  }
 
-  async function removeHolding(ticker) {
-    if (!confirm(`REMOVE ${ticker} FROM PORTFOLIO?`)) return;
-    await fetch(`${API}/portfolio/${ticker}`, { method: 'DELETE' });
-    loadHoldings();
-  }
-
-  // ── P&L ────────────────────────────────────────────────────────────────────
-  async function loadSummary() {
-    const tiles = document.getElementById('summary-tiles');
-    const tbl   = document.getElementById('summary-table');
-    tbl.innerHTML = '<div class="bb-loading" style="padding:16px"><div class="bb-spinner"></div> FETCHING LIVE PRICES...</div>';
-    tiles.style.display = 'none';
-
-    try {
-      const res = await fetch(`${API}/portfolio/summary`);
-      if (res.status === 404) {
-        tbl.innerHTML = '<div class="bb-empty">NO POSITIONS — ADD HOLDINGS IN PORTFOLIO TAB</div>';
-        return;
-      }
-      const s = await res.json();
-      const up = s.total_pnl >= 0;
-
-      tiles.style.display = 'grid';
-      tiles.className = 'summary-tiles';
-      tiles.innerHTML = `
-        <div class="tile">
-          <div class="tile-label">Total Cost Basis</div>
-          <div class="tile-value" style="color:var(--text)">$${fmt(s.total_cost_basis)}</div>
-          <div class="tile-sub">Amount invested</div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Current Value</div>
-          <div class="tile-value" style="color:var(--cyan)">$${fmt(s.total_current_value)}</div>
-          <div class="tile-sub">Live market price</div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Total P&L</div>
-          <div class="tile-value ${up ? 'up' : 'dn'}">${up?'+':'−'}$${fmt(Math.abs(s.total_pnl))}</div>
-          <div class="tile-sub">Unrealised gain/loss</div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Return</div>
-          <div class="tile-value ${up ? 'up' : 'dn'}">${fmtPct(s.total_pnl_pct)}</div>
-          <div class="tile-sub">${up ? 'Outperforming' : 'Underperforming'} cost</div>
-        </div>`;
-
-      tbl.innerHTML = `
-        <table class="bb-table">
-          <thead><tr>
-            <th>Ticker</th><th>Shares</th><th>Avg Buy</th>
-            <th>Current</th><th>Cost Basis</th><th>Mkt Value</th>
-            <th>P&L $</th><th>P&L %</th>
-          </tr></thead>
-          <tbody>
-            ${s.holdings.map(h => {
-              const pos = h.pnl >= 0;
-              return `<tr>
-                <td class="ticker-col">${h.ticker}</td>
-                <td class="num-col">${h.shares}</td>
-                <td class="num-col">$${fmt(h.avg_buy_price)}</td>
-                <td class="num-col">$${fmt(h.current_price)}</td>
-                <td class="num-col">$${fmt(h.cost_basis)}</td>
-                <td class="num-col">$${fmt(h.current_value)}</td>
-                <td class="num-col ${pos?'up':'dn'}">${pos?'+':'−'}$${fmt(Math.abs(h.pnl))}</td>
-                <td class="num-col ${pos?'up':'dn'}">${fmtPct(h.pnl_pct)}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>`;
-    } catch(e) {
-      tbl.innerHTML = '<div class="bb-error" style="margin:16px">FAILED TO LOAD P&L DATA</div>';
+    // Metrics
+    if(mR.ok){
+      const m=await mR.json();
+      document.getElementById('m-ma20').textContent=m.ma_20?'$'+$f(m.ma_20):'—';
+      document.getElementById('m-ma50').textContent=m.ma_50?'$'+$f(m.ma_50):'—';
+      const rsiC=m.rsi_14>70?'var(--red)':m.rsi_14<30?'var(--green)':'var(--gold)';
+      const rsiL=m.rsi_14>70?'Overbought':m.rsi_14<30?'Oversold':'Neutral zone';
+      document.getElementById('m-rsi').textContent=m.rsi_14??'—';
+      document.getElementById('m-rsi').style.color=rsiC;
+      document.getElementById('m-rsi-lbl').textContent=rsiL;
+      document.getElementById('rsi-fill').style.width=(m.rsi_14??0)+'%';
+      document.getElementById('rsi-fill').style.background=rsiC;
+      document.getElementById('m-vol').textContent=m.volatility?m.volatility+'%':'—';
+      const tc=m.trend==='Bullish'?'bg':m.trend==='Bearish'?'br':'bn';
+      document.getElementById('m-trend').innerHTML=`<span class="badge ${tc}">${m.trend??'—'}</span>`;
+      document.getElementById('metrics-row').style.display='grid';
     }
+
+  }catch(e){
+    st.innerHTML=`<div class="err">Connection error — ensure the API server is running.</div>`;
   }
+}
+
+// ── HOLDINGS ─────────────────────────────────────────────────────────────────
+async function loadHoldings(){
+  const el=document.getElementById('h-table');
+  el.innerHTML=`<div class="ld"><div class="sp"></div>Loading positions…</div>`;
+  try{
+    const r=await fetch(`${API}/portfolio`);
+    const h=await r.json();
+    document.getElementById('h-count').textContent=h.length+' position'+(h.length!==1?'s':'');
+    if(!h.length){el.innerHTML=`<div class="empty">No positions — add your first holding above</div>`;return;}
+    el.innerHTML=`
+      <table class="tbl">
+        <thead><tr><th>Ticker</th><th>Shares</th><th>Avg. Cost</th><th>Date Added</th><th></th></tr></thead>
+        <tbody>${h.map(x=>`<tr>
+          <td class="tc">${x.ticker}</td>
+          <td class="tm">${x.shares}</td>
+          <td class="tm">$${$f(x.avg_buy_price)}</td>
+          <td style="color:var(--t3);font-size:11px;font-family:'JetBrains Mono',monospace">${x.created_at?new Date(x.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+          <td><button class="del-btn" onclick="removeHolding('${x.ticker}')">Remove</button></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }catch(e){el.innerHTML=`<div class="err" style="margin:16px">Failed to load holdings.</div>`;}
+}
+
+async function addHolding(){
+  const raw=document.getElementById('add-ticker').value.trim();
+  const ticker=raw.toUpperCase().replace(/\.NS$/i,'.NS').replace(/\.BO$/i,'.BO');
+  const shares=parseFloat(document.getElementById('add-shares').value);
+  const price=parseFloat(document.getElementById('add-price').value);
+  const msg=document.getElementById('add-msg');
+  if(!ticker||!shares||!price){msg.innerHTML=`<div class="err">All fields are required.</div>`;return;}
+  msg.innerHTML=`<div class="ld"><div class="sp"></div>Adding position…</div>`;
+  try{
+    const r=await fetch(`${API}/portfolio`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticker,shares,avg_buy_price:price})});
+    const data=await r.json();
+    if(!r.ok){msg.innerHTML=`<div class="err">${data.detail}</div>`;return;}
+    msg.innerHTML=`<div class="ok">${ticker} added successfully.</div>`;
+    document.getElementById('add-ticker').value='';
+    document.getElementById('add-shares').value='';
+    document.getElementById('add-price').value='';
+    loadHoldings();loadPortSummary();
+    setTimeout(()=>msg.innerHTML='',3000);
+  }catch(e){msg.innerHTML=`<div class="err">Connection error.</div>`;}
+}
+
+async function removeHolding(ticker){
+  if(!confirm(`Remove ${ticker} from portfolio?`))return;
+  await fetch(`${API}/portfolio/${ticker}`,{method:'DELETE'});
+  loadHoldings();loadPortSummary();
+}
+
+// ── SUMMARY ──────────────────────────────────────────────────────────────────
+async function loadSummary(){
+  const tiles=document.getElementById('s-tiles');
+  const tbl=document.getElementById('s-table');
+  tiles.innerHTML='';
+  tbl.innerHTML=`<div class="ld"><div class="sp"></div>Fetching live prices…</div>`;
+  try{
+    const r=await fetch(`${API}/portfolio/summary`);
+    if(r.status===404){tbl.innerHTML=`<div class="empty">No positions — add holdings first</div>`;return;}
+    const s=await r.json();
+    const up=s.total_pnl>=0;
+
+    tiles.innerHTML=`
+      <div class="tile-row">
+        <div class="tile"><div class="tile-lbl">Cost Basis</div><div class="tile-val" style="color:var(--t1)">$${$f(s.total_cost_basis)}</div><div class="tile-sub">Total invested</div></div>
+        <div class="tile"><div class="tile-lbl">Market Value</div><div class="tile-val" style="color:var(--blue)">$${$f(s.total_current_value)}</div><div class="tile-sub">At live prices</div></div>
+        <div class="tile"><div class="tile-lbl">Unrealised P&amp;L</div><div class="tile-val ${up?'up':'dn'}">${up?'+':'−'}$${$f(Math.abs(s.total_pnl))}</div><div class="tile-sub">Gain / loss vs cost</div></div>
+        <div class="tile"><div class="tile-lbl">Total Return</div><div class="tile-val ${up?'up':'dn'}">${$p(s.total_pnl_pct)}</div><div class="tile-sub">${up?'Portfolio gain':'Portfolio loss'}</div></div>
+      </div>`;
+
+    tbl.innerHTML=`
+      <table class="tbl">
+        <thead><tr><th>Ticker</th><th>Shares</th><th>Avg Cost</th><th>Current</th><th>Cost Basis</th><th>Mkt Value</th><th>P&amp;L ($)</th><th>P&amp;L (%)</th></tr></thead>
+        <tbody>${s.holdings.map(h=>{
+          const pos=h.pnl>=0;
+          return`<tr>
+            <td class="tc">${h.ticker}</td>
+            <td class="tm">${h.shares}</td>
+            <td class="tm">$${$f(h.avg_buy_price)}</td>
+            <td class="tm">$${$f(h.current_price)}</td>
+            <td class="tm">$${$f(h.cost_basis)}</td>
+            <td class="tm">$${$f(h.current_value)}</td>
+            <td class="tm ${pos?'up':'dn'}">${pos?'+':'−'}$${$f(Math.abs(h.pnl))}</td>
+            <td class="tm ${pos?'up':'dn'}">${$p(h.pnl_pct)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+  }catch(e){tbl.innerHTML=`<div class="err" style="margin:16px">Failed to load P&L data.</div>`;}
+}
 </script>
 </body>
 </html>
