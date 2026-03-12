@@ -1,7 +1,6 @@
 """
 Stock service — market data fetching and financial metric computation.
-Uses yfinance (free, no API key required).
-Uses .history() instead of .info dict for reliability on cloud servers.
+Uses yfinance with browser user-agent to avoid cloud IP blocks.
 """
 
 import yfinance as yf
@@ -10,9 +9,25 @@ import pandas as pd
 from typing import Optional, List
 from app import schemas
 
+# Patch yfinance session with a real browser user-agent
+import requests
+from requests.adapters import HTTPAdapter
+
+_session = requests.Session()
+_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+})
+
+
+def _ticker(symbol: str) -> yf.Ticker:
+    return yf.Ticker(symbol, session=_session)
+
 
 def _flatten_close(df) -> pd.Series:
-    """Handle both single and multi-level column DataFrames from yfinance."""
     if df.empty:
         return pd.Series(dtype=float)
     if isinstance(df.columns, pd.MultiIndex):
@@ -25,9 +40,8 @@ def _flatten_close(df) -> pd.Series:
 
 
 def get_current_price(ticker: str) -> Optional[float]:
-    """Return latest price for a ticker, or None if not found."""
     try:
-        t = yf.Ticker(ticker)
+        t = _ticker(ticker)
         hist = t.history(period="5d")
         closes = _flatten_close(hist)
         if not closes.empty:
@@ -38,9 +52,8 @@ def get_current_price(ticker: str) -> Optional[float]:
 
 
 def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
-    """Return real-time quote using history() for reliability on cloud."""
     try:
-        t = yf.Ticker(ticker)
+        t = _ticker(ticker)
         hist = t.history(period="5d")
         closes = _flatten_close(hist)
 
@@ -53,7 +66,7 @@ def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
         volume = 0
         mktcap = None
         try:
-            fi = t.fast_info
+            fi     = t.fast_info
             volume = int(getattr(fi, 'three_month_average_volume', 0) or 0)
             mktcap = getattr(fi, 'market_cap', None)
         except Exception:
@@ -76,11 +89,10 @@ def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
 
 
 def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
-    """Return daily closing prices for the past N days."""
     try:
-        t = yf.Ticker(ticker)
+        t      = _ticker(ticker)
         period = f"{days}d" if days <= 59 else f"{(days // 30) + 1}mo"
-        df = t.history(period=period)
+        df     = t.history(period=period)
         closes = _flatten_close(df)
         if closes.empty:
             return []
@@ -97,20 +109,19 @@ def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
 
 
 def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
-    """Technical indicators: MA-20, MA-50, RSI-14, volatility, trend."""
     try:
-        t = yf.Ticker(ticker)
-        df = t.history(period="6mo")
+        t      = _ticker(ticker)
+        df     = t.history(period="6mo")
         closes = _flatten_close(df)
 
         if closes.empty or len(closes) < 20:
             return None
 
-        ma_20 = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
-        ma_50 = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
-        rsi   = _compute_rsi(closes)
+        ma_20   = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
+        ma_50   = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
+        rsi     = _compute_rsi(closes)
         log_ret = np.log(closes / closes.shift(1)).dropna()
-        vol   = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
+        vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
 
         trend = None
         if ma_20 and ma_50:
@@ -143,7 +154,6 @@ def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
 
 
 def build_portfolio_summary(holdings) -> Optional[schemas.PortfolioSummary]:
-    """Fetch live prices and compute P&L for every holding."""
     rows = []
     total_cost = total_value = 0.0
 
