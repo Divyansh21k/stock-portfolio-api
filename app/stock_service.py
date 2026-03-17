@@ -1,7 +1,7 @@
 """
 Stock service — market data via Finnhub API.
-Finnhub works reliably on all cloud providers (no IP blocks).
-Set FINNHUB_API_KEY environment variable on Render.
+- Quotes: /quote endpoint (free tier)
+- History: Yahoo Finance chart API (no auth, no IP block on this endpoint)
 """
 
 import os
@@ -13,109 +13,145 @@ from typing import Optional, List
 from app import schemas
 
 FINNHUB_KEY = os.getenv("FINNHUB_API_KEY", "")
-BASE = "https://finnhub.io/api/v1"
+FINNHUB_BASE = "https://finnhub.io/api/v1"
 
-_sess = requests.Session()
-_sess.headers.update({"X-Finnhub-Token": FINNHUB_KEY})
+_fh = requests.Session()
+_fh.headers.update({"X-Finnhub-Token": FINNHUB_KEY})
+
+_yf = requests.Session()
+_yf.headers.update({
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+})
 
 
-def _get(path: str, params: dict = {}) -> Optional[dict]:
+# ── FINNHUB QUOTE ─────────────────────────────────────────────────────────────
+
+def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
     try:
-        r = _sess.get(f"{BASE}{path}", params=params, timeout=10)
-        if r.status_code == 200:
-            return r.json()
-        return None
+        r = _fh.get(f"{FINNHUB_BASE}/quote", params={"symbol": ticker}, timeout=10)
+        data = r.json()
+        if not data or data.get("c", 0) == 0:
+            return None
+        current = round(float(data["c"]), 2)
+        prev    = round(float(data["pc"]), 2)
+        change  = round(float(data["d"]) if data.get("d") else current - prev, 4)
+        pct     = round(float(data["dp"]) if data.get("dp") else (change / prev * 100 if prev else 0), 2)
+
+        profile = _fh.get(f"{FINNHUB_BASE}/stock/profile2", params={"symbol": ticker}, timeout=10).json()
+        mktcap  = profile.get("marketCapitalization", 0) * 1_000_000 if profile else None
+
+        return schemas.StockQuote(
+            ticker=ticker,
+            current_price=current,
+            previous_close=prev,
+            change=change,
+            change_pct=pct,
+            volume=0,
+            market_cap=mktcap
+        )
     except Exception:
         return None
 
 
-def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
-    data = _get("/quote", {"symbol": ticker})
-    if not data or data.get("c", 0) == 0:
-        return None
-    current = round(float(data["c"]), 2)
-    prev    = round(float(data["pc"]), 2)
-    change  = round(float(data["d"]), 4)
-    pct     = round(float(data["dp"]), 2)
-
-    profile = _get("/stock/profile2", {"symbol": ticker})
-    mktcap  = None
-    if profile and profile.get("marketCapitalization"):
-        mktcap = profile["marketCapitalization"] * 1_000_000
-
-    return schemas.StockQuote(
-        ticker=ticker,
-        current_price=current,
-        previous_close=prev,
-        change=change,
-        change_pct=pct,
-        volume=0,
-        market_cap=mktcap
-    )
-
-
 def get_current_price(ticker: str) -> Optional[float]:
-    data = _get("/quote", {"symbol": ticker})
-    if not data or data.get("c", 0) == 0:
+    try:
+        r    = _fh.get(f"{FINNHUB_BASE}/quote", params={"symbol": ticker}, timeout=10)
+        data = r.json()
+        if not data or data.get("c", 0) == 0:
+            return None
+        return round(float(data["c"]), 2)
+    except Exception:
         return None
-    return round(float(data["c"]), 2)
 
+
+# ── YAHOO FINANCE HISTORY (free, no auth) ─────────────────────────────────────
 
 def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
-    to_ts   = int(datetime.utcnow().timestamp())
-    from_ts = int((datetime.utcnow() - timedelta(days=days + 5)).timestamp())
+    try:
+        end   = int(datetime.utcnow().timestamp())
+        start = int((datetime.utcnow() - timedelta(days=days + 10)).timestamp())
 
-    data = _get("/stock/candle", {
-        "symbol": ticker,
-        "resolution": "D",
-        "from": from_ts,
-        "to": to_ts
-    })
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        r   = _yf.get(url, params={
+            "period1": start,
+            "period2": end,
+            "interval": "1d",
+            "includePrePost": "false",
+        }, timeout=15)
 
-    if not data or data.get("s") != "ok":
+        if r.status_code != 200:
+            # fallback mirror
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
+            r   = _yf.get(url, params={
+                "period1": start,
+                "period2": end,
+                "interval": "1d",
+            }, timeout=15)
+
+        data      = r.json()
+        result_b  = data.get("chart", {}).get("result", [])
+        if not result_b:
+            return []
+
+        timestamps = result_b[0].get("timestamp", [])
+        closes     = result_b[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+
+        points = []
+        for t, c in zip(timestamps, closes):
+            if c is None:
+                continue
+            date_str = datetime.utcfromtimestamp(t).strftime("%Y-%m-%d")
+            points.append(schemas.PricePoint(date=date_str, close=round(float(c), 2)))
+
+        return points[-days:]
+
+    except Exception:
         return []
 
-    result = []
-    for t, c in zip(data["t"], data["c"]):
-        try:
-            date_str = datetime.utcfromtimestamp(t).strftime("%Y-%m-%d")
-            result.append(schemas.PricePoint(date=date_str, close=round(float(c), 2)))
-        except Exception:
-            continue
-    return result[-days:]
 
+# ── METRICS (uses Yahoo history) ──────────────────────────────────────────────
 
 def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
-    to_ts   = int(datetime.utcnow().timestamp())
-    from_ts = int((datetime.utcnow() - timedelta(days=200)).timestamp())
+    try:
+        end   = int(datetime.utcnow().timestamp())
+        start = int((datetime.utcnow() - timedelta(days=200)).timestamp())
 
-    data = _get("/stock/candle", {
-        "symbol": ticker,
-        "resolution": "D",
-        "from": from_ts,
-        "to": to_ts
-    })
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        r   = _yf.get(url, params={
+            "period1": start,
+            "period2": end,
+            "interval": "1d",
+        }, timeout=15)
 
-    if not data or data.get("s") != "ok" or len(data["c"]) < 20:
+        data     = r.json()
+        result_b = data.get("chart", {}).get("result", [])
+        if not result_b:
+            return None
+
+        raw_closes = result_b[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+        closes     = pd.Series([c for c in raw_closes if c is not None], dtype=float)
+
+        if len(closes) < 20:
+            return None
+
+        ma_20 = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
+        ma_50 = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
+        rsi   = _compute_rsi(closes)
+
+        log_ret = np.log(closes / closes.shift(1)).dropna()
+        vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
+
+        trend = None
+        if ma_20 and ma_50:
+            trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
+
+        return schemas.StockMetrics(
+            ticker=ticker, ma_20=ma_20, ma_50=ma_50,
+            rsi_14=rsi, volatility=vol, trend=trend
+        )
+    except Exception:
         return None
-
-    closes = pd.Series(data["c"], dtype=float)
-
-    ma_20 = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
-    ma_50 = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
-    rsi   = _compute_rsi(closes)
-
-    log_ret = np.log(closes / closes.shift(1)).dropna()
-    vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
-
-    trend = None
-    if ma_20 and ma_50:
-        trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
-
-    return schemas.StockMetrics(
-        ticker=ticker, ma_20=ma_20, ma_50=ma_50,
-        rsi_14=rsi, volatility=vol, trend=trend
-    )
 
 
 def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
@@ -135,6 +171,8 @@ def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
     except Exception:
         return None
 
+
+# ── PORTFOLIO SUMMARY ─────────────────────────────────────────────────────────
 
 def build_portfolio_summary(holdings) -> Optional[schemas.PortfolioSummary]:
     rows = []
