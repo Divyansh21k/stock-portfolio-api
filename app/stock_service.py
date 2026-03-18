@@ -1,5 +1,5 @@
 """
-Stock service — market data via Finnhub API (quotes) + Yahoo Finance v8 (history/metrics).
+Stock service — Finnhub (quotes) + Polygon.io (history/metrics).
 """
 
 import os
@@ -11,21 +11,17 @@ from typing import Optional, List
 from app import schemas
 
 FINNHUB_KEY = os.getenv("FINNHUB_API_KEY", "")
-FINNHUB_BASE = "https://finnhub.io/api/v1"
+POLYGON_KEY  = os.getenv("POLYGON_API_KEY", "")
 
 _fh = requests.Session()
 _fh.headers.update({"X-Finnhub-Token": FINNHUB_KEY})
 
-_yf = requests.Session()
-_yf.headers.update({
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json",
-})
+_pg = requests.Session()
 
 
 def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
     try:
-        r = _fh.get(f"{FINNHUB_BASE}/quote", params={"symbol": ticker}, timeout=10)
+        r    = _fh.get(f"https://finnhub.io/api/v1/quote", params={"symbol": ticker}, timeout=10)
         data = r.json()
         if not data or data.get("c", 0) == 0:
             return None
@@ -33,7 +29,7 @@ def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
         prev    = round(float(data["pc"]), 2)
         change  = round(float(data["d"]) if data.get("d") else current - prev, 4)
         pct     = round(float(data["dp"]) if data.get("dp") else (change / prev * 100 if prev else 0), 2)
-        profile = _fh.get(f"{FINNHUB_BASE}/stock/profile2", params={"symbol": ticker}, timeout=10).json()
+        profile = _fh.get(f"https://finnhub.io/api/v1/stock/profile2", params={"symbol": ticker}, timeout=10).json()
         mktcap  = profile.get("marketCapitalization", 0) * 1_000_000 if profile else None
         return schemas.StockQuote(
             ticker=ticker, current_price=current, previous_close=prev,
@@ -45,7 +41,7 @@ def get_full_quote(ticker: str) -> Optional[schemas.StockQuote]:
 
 def get_current_price(ticker: str) -> Optional[float]:
     try:
-        r = _fh.get(f"{FINNHUB_BASE}/quote", params={"symbol": ticker}, timeout=10)
+        r    = _fh.get(f"https://finnhub.io/api/v1/quote", params={"symbol": ticker}, timeout=10)
         data = r.json()
         if not data or data.get("c", 0) == 0:
             return None
@@ -54,38 +50,34 @@ def get_current_price(ticker: str) -> Optional[float]:
         return None
 
 
-def _yahoo_history(ticker: str, days: int) -> list:
-    end   = int(datetime.utcnow().timestamp())
-    start = int((datetime.utcnow() - timedelta(days=days + 10)).timestamp())
-    for base in ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]:
-        try:
-            r = _yf.get(f"{base}/v8/finance/chart/{ticker}",
-                params={"period1": start, "period2": end, "interval": "1d", "includePrePost": "false"},
-                timeout=15)
-            if r.status_code == 200:
-                result = r.json().get("chart", {}).get("result", [])
-                if result:
-                    return result[0]
-        except Exception:
-            continue
-    return []
+def _polygon_history(ticker: str, days: int) -> List[dict]:
+    try:
+        end   = datetime.utcnow().strftime("%Y-%m-%d")
+        start = (datetime.utcnow() - timedelta(days=days + 10)).strftime("%Y-%m-%d")
+        # Polygon uses plain ticker for US stocks, no suffix needed
+        clean = ticker.replace(".NS", "").replace(".BO", "")
+        r = _pg.get(
+            f"https://api.polygon.io/v2/aggs/ticker/{clean}/range/1/day/{start}/{end}",
+            params={"adjusted": "true", "sort": "asc", "limit": 300, "apiKey": POLYGON_KEY},
+            timeout=15
+        )
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("results", [])
+        return []
+    except Exception:
+        return []
 
 
 def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
     try:
-        result = _yahoo_history(ticker, days)
-        if not result:
+        results = _polygon_history(ticker, days)
+        if not results:
             return []
-        timestamps = result.get("timestamp", [])
-        closes     = result.get("indicators", {}).get("quote", [{}])[0].get("close", [])
         points = []
-        for t, c in zip(timestamps, closes):
-            if c is None:
-                continue
-            points.append(schemas.PricePoint(
-                date=datetime.utcfromtimestamp(t).strftime("%Y-%m-%d"),
-                close=round(float(c), 2)
-            ))
+        for bar in results:
+            date_str = datetime.utcfromtimestamp(bar["t"] / 1000).strftime("%Y-%m-%d")
+            points.append(schemas.PricePoint(date=date_str, close=round(float(bar["c"]), 2)))
         return points[-days:]
     except Exception:
         return []
@@ -93,11 +85,10 @@ def get_price_history(ticker: str, days: int = 30) -> List[schemas.PricePoint]:
 
 def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
     try:
-        result = _yahoo_history(ticker, 200)
-        if not result:
+        results = _polygon_history(ticker, 200)
+        if not results:
             return None
-        raw = result.get("indicators", {}).get("quote", [{}])[0].get("close", [])
-        closes = pd.Series([c for c in raw if c is not None], dtype=float)
+        closes = pd.Series([bar["c"] for bar in results], dtype=float)
         if len(closes) < 20:
             return None
         ma_20   = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
@@ -117,11 +108,11 @@ def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
     try:
         if len(closes) < period + 1:
             return None
-        delta    = closes.diff()
-        gain     = delta.clip(lower=0)
-        loss     = -delta.clip(upper=0)
-        avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
-        avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
+        delta     = closes.diff()
+        gain      = delta.clip(lower=0)
+        loss      = -delta.clip(upper=0)
+        avg_gain  = gain.ewm(alpha=1/period, min_periods=period).mean()
+        avg_loss  = loss.ewm(alpha=1/period, min_periods=period).mean()
         last_loss = float(avg_loss.iloc[-1])
         if last_loss == 0:
             return 100.0
