@@ -152,3 +152,15 @@ def get_metrics(ticker: str):
     if metrics is None:
         raise HTTPException(status_code=404, detail=f"Could not compute metrics for '{ticker}'.")
     return metrics
+
+@app.get("/debug/history/{ticker}")
+async def debug_history(ticker: str):
+    import requests
+    from datetime import datetime, timedelta
+    end = int(datetime.utcnow().timestamp())
+    start = int((datetime.utcnow() - timedelta(days=40)).timestamp())
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+        params={"period1": start, "period2": end, "interval": "1d"},
+        headers=headers, timeout=15)
+    return {"status": r.status_code, "body": r.text[:500]}
