@@ -33,13 +33,12 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-
 @app.get("/", tags=["Health"])
 def root():
     index = os.path.join(os.path.dirname(__file__), "static", "index.html")
     if os.path.exists(index):
         return FileResponse(index)
-    return {"status": "ok"}
+    return {"status": "ok", "version": "1.0.0"}
 
 @app.get("/health", tags=["Health"])
 def health():
@@ -128,3 +127,27 @@ async def debug_finnhub(ticker: str):
         params={"symbol": ticker, "resolution": "D", "from": start, "to": end, "token": key},
         timeout=15)
     return {"status": r.status_code, "body": r.json()}
+
+@app.get("/news/{ticker}", tags=["Market Data"])
+def get_news(ticker: str):
+    return stock_service.get_company_news(ticker.upper())
+
+@app.get("/market/overview", tags=["Market Data"])
+def market_overview():
+    return stock_service.get_market_overview()
+
+@app.get("/candles/{ticker}", tags=["Market Data"])
+def get_candles(ticker: str, days: int = 30):
+    if not 1 <= days <= 365:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 365.")
+    data = stock_service.get_candles(ticker.upper(), days)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No candle data for '{ticker}'.")
+    return data
+
+@app.get("/portfolio/chart", tags=["Portfolio"])
+def portfolio_chart(db: Session = Depends(get_db)):
+    holdings = db.query(models.Holding).all()
+    if not holdings:
+        raise HTTPException(status_code=404, detail="Portfolio is empty.")
+    return stock_service.get_portfolio_chart(holdings)

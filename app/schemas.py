@@ -35,8 +35,13 @@ class StockQuote(BaseModel):
 
 
 class PricePoint(BaseModel):
-    date:  str
-    close: float
+    date:   Optional[str] = None
+    time:   str
+    open:   float
+    high:   float
+    low:    float
+    close:  float
+    volume: int
 
 
 class StockMetrics(BaseModel):
