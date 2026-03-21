@@ -151,3 +151,14 @@ def portfolio_chart(db: Session = Depends(get_db)):
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
     return stock_service.get_portfolio_chart(holdings)
+@app.get("/debug/av/{ticker}")
+async def debug_av(ticker: str):
+    import requests, os
+    key = os.getenv("ALPHA_VANTAGE_KEY", "NOT_SET")
+    r = requests.get("https://www.alphavantage.co/query", params={
+        "function": "TIME_SERIES_DAILY",
+        "symbol": ticker,
+        "outputsize": "compact",
+        "apikey": key
+    }, timeout=15)
+    return {"status": r.status_code, "key_set": key != "NOT_SET", "body": r.json()}
