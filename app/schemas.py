@@ -2,17 +2,14 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
-
 class HoldingCreate(BaseModel):
     ticker: str          = Field(..., example="AAPL")
     shares: float        = Field(..., gt=0, example=10)
     avg_buy_price: float = Field(..., gt=0, example=150.00)
-
     @field_validator("ticker")
     @classmethod
     def uppercase_ticker(cls, v):
         return v.upper().strip()
-
 
 class HoldingOut(BaseModel):
     id:            int
@@ -20,9 +17,7 @@ class HoldingOut(BaseModel):
     shares:        float
     avg_buy_price: float
     created_at:    Optional[datetime] = None
-
     model_config = {"from_attributes": True}
-
 
 class StockQuote(BaseModel):
     ticker:         str
@@ -33,16 +28,9 @@ class StockQuote(BaseModel):
     volume:         int
     market_cap:     Optional[float] = None
 
-
 class PricePoint(BaseModel):
-    date:   Optional[str] = None
-    time:   str
-    open:   float
-    high:   float
-    low:    float
+    date:   str
     close:  float
-    volume: int
-
 
 class StockMetrics(BaseModel):
     ticker:     str
@@ -51,7 +39,6 @@ class StockMetrics(BaseModel):
     rsi_14:     Optional[float] = None
     volatility: Optional[float] = None
     trend:      Optional[str]   = None
-
 
 class HoldingSummary(BaseModel):
     ticker:        str
@@ -62,7 +49,6 @@ class HoldingSummary(BaseModel):
     current_value: float
     pnl:           float
     pnl_pct:       float
-
 
 class PortfolioSummary(BaseModel):
     total_cost_basis:    float
