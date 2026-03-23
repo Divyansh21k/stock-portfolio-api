@@ -1,158 +1,125 @@
-# 📈 Stock Portfolio Tracker API
+# StockPulse — Equity Risk & Insight Engine
 
-> Real-time equity portfolio management powered by Finnhub market data and AI-driven technical analysis.
+> Turns raw market data into actionable portfolio intelligence. Built for investors who want Bloomberg-level risk signals without the Bloomberg price tag.
 
-**Live Demo:** https://stock-portfolio-api-qryi.onrender.com
-
----
-
-## About
-
-Stock Portfolio Tracker is a production-ready REST API and interactive dashboard for managing equity portfolios with live market data. Built with FastAPI and powered by the Finnhub API for real-time quotes, it gives you instant access to technical indicators, P&L analytics, and price history — all in one place.
+**Live Demo:** https://stock-portfolio-api-qryi.onrender.com  
+**API Docs:** https://stock-portfolio-api-qryi.onrender.com/docs
 
 ---
 
-## Why Stock Portfolio Tracker?
+## What it does
 
-- ⚡ **Real-time Data** — Live quotes and price history via Finnhub API
-- 📊 **Technical Analysis** — RSI-14, MA-20/50, volatility and trend signals computed on the fly
-- 💼 **Portfolio Management** — Track holdings, cost basis, and unrealised P&L
-- 🚀 **Production Ready** — Dockerised, CI/CD via GitHub Actions, deployed on Render
-- 🌐 **Full Stack** — Interactive dashboard UI included, no external frontend needed
+StockPulse is a production-deployed REST API that tracks equity portfolios in real time and surfaces meaningful risk signals — not just raw numbers. It tells you *what the data means*, not just what it is.
 
----
+```json
+GET /portfolio/insights
 
-## ✨ Features
-
-### 📉 Market Data
-- Real-time stock quotes with day change and market cap
-- 30-day price history with interactive chart
-- Support for US equities and Indian stocks (NSE/BSE)
-
-### 🧮 Technical Indicators
-- **RSI-14** — Overbought / Oversold signal with visual gauge
-- **MA-20 & MA-50** — Moving average crossover analysis
-- **Annualised Volatility** — 30-day rolling volatility
-- **Trend Signal** — Bullish / Bearish / Neutral classification
-
-### 💰 Portfolio Analytics
-- Add, update, and remove holdings
-- Live cost basis vs market value comparison
-- Unrealised P&L per position and total portfolio return
-- Full position breakdown table
-
-### 🖥️ Interactive Dashboard
-- 3-column finance UI with live watchlist sidebar
-- Portfolio value card with real-time P&L
-- Clock with NYSE market hours indicator
+{
+  "generated_at": "2026-03-23T14:30:00Z",
+  "alert_count": { "high": 1, "medium": 2, "total": 3 },
+  "summary": "1 high-priority alert. Portfolio requires attention.",
+  "alerts": [
+    {
+      "ticker": "NVDA",
+      "type": "overbought",
+      "severity": "high",
+      "message": "RSI at 78.4 — momentum suggests short-term pullback risk"
+    },
+    {
+      "ticker": "AAPL",
+      "type": "concentration",
+      "severity": "medium",
+      "message": "42% of portfolio in a single position — consider rebalancing"
+    }
+  ]
+}
+```
 
 ---
 
-## 🛠️ Tech Stack
+## Architecture
 
-**Backend**
-- FastAPI — REST API framework
-- SQLAlchemy — ORM
-- PostgreSQL (prod) / SQLite (dev)
-- Finnhub API — Market data
-
-**Data & Analytics**
-- NumPy — Volatility and returns computation
-- Pandas — Time-series processing
-
-**DevOps**
-- Docker + docker-compose
-- GitHub Actions — CI pipeline
-- Render — Cloud deployment
+```
+Client → FastAPI → Finnhub API (live quotes)
+                 → Alpha Vantage (price history, OHLCV)
+                 → PostgreSQL (portfolio state)
+                 → Insight Engine (rules-based risk analysis)
+```
 
 ---
 
-## 📡 API Endpoints
+## Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/` | Interactive dashboard |
-| `GET` | `/health` | Health check |
-| `POST` | `/portfolio` | Add a holding |
-| `GET` | `/portfolio` | List all holdings |
-| `PUT` | `/portfolio/{ticker}` | Update a holding |
-| `DELETE` | `/portfolio/{ticker}` | Remove a holding |
+| `GET` | `/portfolio/insights` | Actionable risk alerts per holding |
+| `GET` | `/portfolio/risk` | Aggregated risk profile with concentration score |
 | `GET` | `/portfolio/summary` | Full P&L at live prices |
-| `GET` | `/quote/{ticker}` | Real-time quote |
-| `GET` | `/history/{ticker}?days=30` | Price history |
-| `GET` | `/metrics/{ticker}` | RSI, MA, volatility, trend |
+| `GET` | `/portfolio/chart` | Portfolio value over time |
+| `GET` | `/quote/{ticker}` | Real-time quote via Finnhub |
+| `GET` | `/candles/{ticker}` | OHLCV candlestick data via Alpha Vantage |
+| `GET` | `/metrics/{ticker}` | RSI-14, MA-20/50, volatility, trend signal |
+| `GET` | `/news/{ticker}` | Latest company news via Finnhub |
+| `GET` | `/market/overview` | Live index overview (SPY, QQQ, DIA, GLD) |
+| `POST` | `/portfolio` | Add a holding |
+| `DELETE` | `/portfolio/{ticker}` | Remove a holding |
 
 ---
 
-## 🚀 Local Setup
+## Insight Engine
 
-### Prerequisites
-- Python 3.11+
-- Finnhub API key — free at [finnhub.io](https://finnhub.io)
+The insight layer converts raw technical indicators into plain-English risk signals using rule-based logic:
 
-### Install & Run
+| Signal | Trigger | Severity |
+|---|---|---|
+| Overbought | RSI > 70 | High |
+| Oversold | RSI < 30 | Medium |
+| Concentration risk | Single position > 35% of portfolio | High/Medium |
+| Bearish crossover | MA-20 < MA-50 × 0.97 | Medium |
+| High volatility | Annualised vol > 50% | Medium |
+| Drawdown alert | Position down > 15% from cost | High |
+
+Risk rating is computed using a **Herfindahl concentration score** combined with average portfolio volatility.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| API | Python, FastAPI |
+| Database | PostgreSQL (prod), SQLite (dev) |
+| ORM | SQLAlchemy |
+| Market Data | Finnhub API, Alpha Vantage |
+| Analytics | NumPy, Pandas |
+| Deployment | Docker, GitHub Actions CI, Render |
+
+---
+
+## Local Setup
 
 ```bash
 git clone https://github.com/Divyansh21k/stock-portfolio-api
 cd stock-portfolio-api
-
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-cp .env.example .env
-# Add FINNHUB_API_KEY to .env
-
+cp .env.example .env  # add FINNHUB_API_KEY + ALPHA_VANTAGE_KEY
 uvicorn app.main:app --reload
 ```
 
-Open `http://localhost:8000`
-
-### Run with Docker
-
-```bash
-docker-compose up --build
-```
-
-### Run Tests
-
-```bash
-pytest tests/ -v
-```
-
 ---
 
-## 🔐 Environment Variables
+## Environment Variables
 
 | Variable | Description |
 |---|---|
-| `FINNHUB_API_KEY` | Finnhub API key (required) |
-| `DATABASE_URL` | PostgreSQL URL (optional, defaults to SQLite) |
+| `FINNHUB_API_KEY` | [finnhub.io](https://finnhub.io) — free tier |
+| `ALPHA_VANTAGE_KEY` | [alphavantage.co](https://www.alphavantage.co) — free tier |
+| `DATABASE_URL` | PostgreSQL connection string (defaults to SQLite) |
 
 ---
 
-## 📁 Project Structure
+## Author
 
-```
-stock_portfolio_api/
-├── app/
-│   ├── main.py              # FastAPI routes
-│   ├── database.py          # SQLAlchemy setup
-│   ├── models.py            # ORM models
-│   ├── schemas.py           # Pydantic schemas
-│   ├── stock_service.py     # Market data + metrics
-│   └── static/
-│       └── index.html       # Dashboard UI
-├── tests/
-│   └── test_stock_service.py
-├── .github/workflows/
-│   └── ci.yml               # GitHub Actions
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
-
----
-
-Made with ❤️ by [Divyansh Kharnal](https://github.com/Divyansh21k)
+**Divyansh Kharnal** — B.Tech CS, Manipal University Jaipur  
+[GitHub](https://github.com/Divyansh21k) · [LinkedIn](https://linkedin.com/in/divyanshkharnal)

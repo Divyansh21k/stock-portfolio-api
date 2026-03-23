@@ -219,3 +219,150 @@ def get_portfolio_chart(holdings, days: int = 30):
         for point in get_price_history(h.ticker, days):
             daily_totals[point.date] += round(h.shares * point.close, 2)
     return [{"date": d, "value": round(v, 2)} for d, v in sorted(daily_totals.items())]
+
+# Add to stock_service.py
+
+def generate_portfolio_insights(holdings_with_metrics: list) -> dict:
+    """
+    Converts raw metrics into actionable risk signals.
+    Rules-based insight engine — no ML required.
+    """
+    alerts = []
+    total_value = sum(h.get("current_value", 0) for h in holdings_with_metrics)
+
+    for h in holdings_with_metrics:
+        ticker  = h["ticker"]
+        weight  = h["current_value"] / total_value if total_value else 0
+        rsi     = h.get("rsi_14")
+        ma_20   = h.get("ma_20")
+        ma_50   = h.get("ma_50")
+        vol     = h.get("volatility")
+        pnl_pct = h.get("pnl_pct", 0)
+
+        # Concentration risk
+        if weight > 0.35:
+            alerts.append({
+                "ticker": ticker, "type": "concentration",
+                "severity": "high" if weight > 0.45 else "medium",
+                "message": f"{weight*100:.0f}% of portfolio in a single position — consider rebalancing"
+            })
+
+        # RSI signals
+        if rsi and rsi > 70:
+            alerts.append({
+                "ticker": ticker, "type": "overbought", "severity": "high",
+                "message": f"RSI at {rsi} — momentum suggests short-term pullback risk"
+            })
+        elif rsi and rsi < 30:
+            alerts.append({
+                "ticker": ticker, "type": "oversold", "severity": "medium",
+                "message": f"RSI at {rsi} — potential accumulation opportunity"
+            })
+
+        # Bearish crossover
+        if ma_20 and ma_50 and ma_20 < ma_50 * 0.97:
+            alerts.append({
+                "ticker": ticker, "type": "bearish_cross", "severity": "medium",
+                "message": f"MA-20 (${ma_20}) below MA-50 (${ma_50}) — bearish momentum signal"
+            })
+
+        # High volatility warning
+        if vol and vol > 50:
+            alerts.append({
+                "ticker": ticker, "type": "high_volatility", "severity": "medium",
+                "message": f"Annualised volatility at {vol}% — elevated risk profile"
+            })
+
+        # Large unrealised loss
+        if pnl_pct < -15:
+            alerts.append({
+                "ticker": ticker, "type": "drawdown", "severity": "high",
+                "message": f"Position down {abs(pnl_pct):.1f}% from cost basis — review thesis"
+            })
+
+    high   = [a for a in alerts if a["severity"] == "high"]
+    medium = [a for a in alerts if a["severity"] == "medium"]
+
+    if len(high) >= 2:
+        summary = f"{len(high)} high-priority alerts. Immediate review recommended."
+    elif len(high) == 1:
+        summary = f"1 high-priority alert. Portfolio requires attention."
+    elif medium:
+        summary = f"{len(medium)} medium-priority signals. Portfolio is within acceptable risk bounds."
+    else:
+        summary = "No significant risk signals detected. Portfolio appears well-balanced."
+
+    return {
+        "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "alert_count": {"high": len(high), "medium": len(medium), "total": len(alerts)},
+        "summary": summary,
+        "alerts": alerts
+    }
+
+
+def get_portfolio_risk(holdings) -> dict:
+    """
+    Aggregate risk profile across entire portfolio.
+    """
+    if not holdings:
+        return {}
+
+    total_value = 0
+    vols, rsis = [], []
+    most_volatile = {"ticker": None, "volatility": 0}
+    overbought_count = oversold_count = 0
+
+    prices = {h.ticker: get_current_price(h.ticker) for h in holdings}
+
+    for h in holdings:
+        price = prices.get(h.ticker)
+        if not price:
+            continue
+        val = h.shares * price
+        total_value += val
+
+        m = compute_metrics(h.ticker)
+        if m:
+            if m.volatility:
+                vols.append(m.volatility)
+                if m.volatility > most_volatile["volatility"]:
+                    most_volatile = {"ticker": h.ticker, "volatility": m.volatility}
+            if m.rsi_14:
+                rsis.append(m.rsi_14)
+                if m.rsi_14 > 70: overbought_count += 1
+                if m.rsi_14 < 30: oversold_count   += 1
+
+    # Herfindahl concentration score (0 = diverse, 1 = single stock)
+    weights = []
+    for h in holdings:
+        price = prices.get(h.ticker)
+        if price:
+            weights.append((h.shares * price) / total_value if total_value else 0)
+    concentration = round(sum(w**2 for w in weights), 3)
+
+    avg_vol = round(sum(vols) / len(vols), 1) if vols else None
+
+    if avg_vol and avg_vol > 45 or concentration > 0.4:
+        risk_rating = "High"
+    elif avg_vol and avg_vol > 25 or concentration > 0.25:
+        risk_rating = "Medium"
+    else:
+        risk_rating = "Low"
+
+    risk_summary_map = {
+        "High":   "Portfolio shows elevated concentration and/or volatility. Consider diversification.",
+        "Medium": "Portfolio has moderate risk exposure. Monitor high-volatility positions.",
+        "Low":    "Portfolio is well-diversified with manageable volatility levels."
+    }
+
+    return {
+        "generated_at":       datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "risk_rating":        risk_rating,
+        "risk_summary":       risk_summary_map[risk_rating],
+        "concentration_score": concentration,
+        "avg_volatility":     avg_vol,
+        "most_volatile":      most_volatile["ticker"],
+        "overbought_count":   overbought_count,
+        "oversold_count":     oversold_count,
+        "position_count":     len(holdings)
+    }

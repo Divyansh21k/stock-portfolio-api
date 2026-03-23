@@ -162,3 +162,47 @@ async def debug_av(ticker: str):
         "apikey": key
     }, timeout=15)
     return {"status": r.status_code, "key_set": key != "NOT_SET", "body": r.json()}
+# Add these two routes to main.py
+
+@app.get("/portfolio/insights", tags=["Intelligence"])
+def portfolio_insights(db: Session = Depends(get_db)):
+    """
+    Analyses all holdings and returns actionable risk signals.
+    Flags overbought positions, concentration risk, bearish crossovers,
+    high volatility, and significant drawdowns.
+    """
+    holdings = db.query(models.Holding).all()
+    if not holdings:
+        raise HTTPException(status_code=404, detail="Portfolio is empty.")
+
+    summary = stock_service.build_portfolio_summary(holdings)
+    if not summary:
+        raise HTTPException(status_code=503, detail="Could not fetch live prices.")
+
+    # Enrich with metrics
+    enriched = []
+    for h in summary.holdings:
+        m = stock_service.compute_metrics(h.ticker)
+        enriched.append({
+            "ticker":        h.ticker,
+            "current_value": h.current_value,
+            "pnl_pct":       h.pnl_pct,
+            "rsi_14":        m.rsi_14    if m else None,
+            "ma_20":         m.ma_20     if m else None,
+            "ma_50":         m.ma_50     if m else None,
+            "volatility":    m.volatility if m else None,
+        })
+
+    return stock_service.generate_portfolio_insights(enriched)
+
+
+@app.get("/portfolio/risk", tags=["Intelligence"])
+def portfolio_risk(db: Session = Depends(get_db)):
+    """
+    Aggregated risk profile: concentration score, average volatility,
+    overbought/oversold counts, and overall risk rating.
+    """
+    holdings = db.query(models.Holding).all()
+    if not holdings:
+        raise HTTPException(status_code=404, detail="Portfolio is empty.")
+    return stock_service.get_portfolio_risk(holdings)
