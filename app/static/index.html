@@ -42,7 +42,9 @@ tailwind.config = {
 .ticker-animate { display: flex; width: fit-content; animation: ticker 35s linear infinite; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .page { display: none; }
-.page.active { display: flex; flex-direction: column; }
+.page.active { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+/* Terminal chart: fixed height so watchlist is always visible */
+.chart-canvas-area { flex: 1; min-height: 0; max-height: calc(100vh - 360px); }
 .nav-item { transition: all 0.12s; }
 .nav-item.active { color: #60dac1 !important; background: rgba(31,31,35,0.5); border-right: 2px solid #60dac1; }
 .nav-item.active .ms-icon { color: #60dac1 !important; }
@@ -101,13 +103,13 @@ tailwind.config = {
   </aside>
 
   <!-- MAIN CONTENT -->
-  <main class="pl-16 flex-1 overflow-hidden flex flex-col">
+  <main class="pl-16 flex-1 overflow-hidden flex flex-col min-h-0">
 
     <!-- ═══════════════════════════════════════════════════════ -->
     <!-- PAGE: TERMINAL -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <div class="page active" id="page-terminal">
-      <div class="h-full flex overflow-hidden">
+      <div class="flex-1 flex overflow-hidden min-h-0">
 
         <!-- Drawing Tools -->
         <div style="width:44px;flex-shrink:0;" class="border-r border-outline-variant/15 flex flex-col items-center py-4 gap-4 bg-surface-container-lowest">
@@ -152,7 +154,7 @@ tailwind.config = {
           </div>
 
           <!-- Chart -->
-          <div class="flex-grow relative bg-surface-dim overflow-hidden">
+          <div class="chart-canvas-area relative bg-surface-dim overflow-hidden">
             <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image:radial-gradient(circle at 2px 2px,#3d4946 1px,transparent 0);background-size:24px 24px;"></div>
             <div id="chart-loading" class="absolute inset-0 flex items-center justify-center gap-3 text-on-surface-variant font-label text-xs uppercase tracking-widest">
               <div class="spin"></div> Loading chart…
@@ -195,7 +197,7 @@ tailwind.config = {
           </div>
 
           <!-- Watchlist Table -->
-          <div class="h-44 bg-surface-container-low border-t border-outline-variant/15 flex flex-col flex-shrink-0">
+          <div style="height:160px;" class="bg-surface-container-low border-t border-outline-variant/15 flex flex-col flex-shrink-0">
             <div class="flex items-center justify-between px-4 py-2 border-b border-outline-variant/10 flex-shrink-0">
               <span class="text-[10px] font-label font-bold uppercase tracking-widest">Live Watchlist</span>
               <span class="text-[10px] font-label text-on-surface-variant">Auto-refreshing</span>
@@ -223,9 +225,10 @@ tailwind.config = {
           <div class="p-4 border-b border-outline-variant/15 flex-shrink-0">
             <span class="text-xs font-label font-bold uppercase tracking-widest text-on-surface-variant">Quote Details</span>
           </div>
-          <div class="overflow-y-auto no-scrollbar flex-1 flex flex-col">
+          <!-- Single unified scroll container — everything stacks, one scrollbar -->
+          <div class="overflow-y-auto no-scrollbar flex-1">
             <!-- Price block -->
-            <div class="p-4 flex flex-col gap-4 flex-shrink-0">
+            <div class="p-4 flex flex-col gap-4">
               <div class="flex flex-col gap-1">
                 <span class="text-[9px] font-label text-primary uppercase tracking-widest" id="rp-sym">—</span>
                 <span class="text-3xl font-bold tracking-tighter" id="rp-price">—</span>
@@ -252,12 +255,9 @@ tailwind.config = {
             </div>
 
             <!-- Sentiment block -->
-            <div class="px-4 pb-3 flex-shrink-0 border-t border-outline-variant/10">
+            <div class="px-4 pb-3 border-t border-outline-variant/10">
               <div class="flex items-center justify-between py-2 mb-2">
                 <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Sentiment</span>
-                <div class="flex items-center gap-1" id="rp-sent-loading" style="display:none!important">
-                  <div class="spin" style="width:10px;height:10px;border-width:1.5px;"></div>
-                </div>
               </div>
               <div class="flex items-center justify-between bg-surface-container p-2.5 ghost-border mb-2">
                 <span class="text-[9px] font-label text-on-surface-variant uppercase tracking-widest">VADER Score</span>
@@ -270,7 +270,7 @@ tailwind.config = {
             </div>
 
             <!-- Divergence block -->
-            <div class="px-4 pb-4 flex-shrink-0 border-t border-outline-variant/10">
+            <div class="px-4 pb-4 border-t border-outline-variant/10">
               <div class="py-2 mb-2">
                 <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Divergence Signal</span>
               </div>
@@ -291,12 +291,12 @@ tailwind.config = {
               <div class="text-[10px] font-label text-on-surface-variant leading-relaxed" id="rp-div-interp">—</div>
             </div>
 
-            <!-- News Feed -->
-            <div class="flex-1 flex flex-col border-t border-outline-variant/15 min-h-0">
-              <div class="px-4 py-2 flex-shrink-0">
+            <!-- News Feed — fixed height, its own scroll -->
+            <div class="border-t border-outline-variant/15">
+              <div class="px-4 py-2">
                 <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Latest News</span>
               </div>
-              <div class="overflow-y-auto no-scrollbar px-2 flex-1" id="news-feed">
+              <div class="px-2 pb-4" id="news-feed">
                 <div class="text-center text-on-surface-variant font-label text-[10px] py-4">Select a ticker to load news</div>
               </div>
             </div>
