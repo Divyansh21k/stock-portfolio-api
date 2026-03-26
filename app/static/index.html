@@ -218,44 +218,87 @@ tailwind.config = {
           </div>
         </div>
 
-        <!-- Right Panel: Quote + News -->
-        <div style="width:280px;flex-shrink:0;" class="border-l border-outline-variant/15 flex flex-col bg-surface-container-lowest overflow-hidden">
+        <!-- Right Panel: Quote + Sentiment + News -->
+        <div style="width:300px;min-width:260px;flex-shrink:0;" class="border-l border-outline-variant/15 flex flex-col bg-surface-container-lowest overflow-hidden">
           <div class="p-4 border-b border-outline-variant/15 flex-shrink-0">
             <span class="text-xs font-label font-bold uppercase tracking-widest text-on-surface-variant">Quote Details</span>
           </div>
-          <div class="p-4 flex flex-col gap-4 flex-shrink-0">
-            <div class="flex flex-col gap-1">
-              <span class="text-[9px] font-label text-primary uppercase tracking-widest" id="rp-sym">—</span>
-              <span class="text-3xl font-bold tracking-tighter" id="rp-price">—</span>
-              <span class="text-sm font-label" id="rp-delta">—</span>
+          <div class="overflow-y-auto no-scrollbar flex-1 flex flex-col">
+            <!-- Price block -->
+            <div class="p-4 flex flex-col gap-4 flex-shrink-0">
+              <div class="flex flex-col gap-1">
+                <span class="text-[9px] font-label text-primary uppercase tracking-widest" id="rp-sym">—</span>
+                <span class="text-3xl font-bold tracking-tighter" id="rp-price">—</span>
+                <span class="text-sm font-label" id="rp-delta">—</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="bg-surface-container p-2 ghost-border">
+                  <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Prev Close</div>
+                  <div class="text-xs font-label font-bold" id="rp-prev">—</div>
+                </div>
+                <div class="bg-surface-container p-2 ghost-border">
+                  <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Mkt Cap</div>
+                  <div class="text-xs font-label font-bold" id="rp-mcap">—</div>
+                </div>
+                <div class="bg-surface-container p-2 ghost-border">
+                  <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">RSI-14</div>
+                  <div class="text-xs font-label font-bold" id="rp-rsi">—</div>
+                </div>
+                <div class="bg-surface-container p-2 ghost-border">
+                  <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Trend</div>
+                  <div class="text-xs font-label font-bold" id="rp-trend">—</div>
+                </div>
+              </div>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="bg-surface-container p-2 ghost-border">
-                <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Prev Close</div>
-                <div class="text-xs font-label font-bold" id="rp-prev">—</div>
-              </div>
-              <div class="bg-surface-container p-2 ghost-border">
-                <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Mkt Cap</div>
-                <div class="text-xs font-label font-bold" id="rp-mcap">—</div>
-              </div>
-              <div class="bg-surface-container p-2 ghost-border">
-                <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">RSI-14</div>
-                <div class="text-xs font-label font-bold" id="rp-rsi">—</div>
-              </div>
-              <div class="bg-surface-container p-2 ghost-border">
-                <div class="text-[9px] text-on-surface-variant font-label uppercase mb-1">Trend</div>
-                <div class="text-xs font-label font-bold" id="rp-trend">—</div>
-              </div>
-            </div>
-          </div>
 
-          <!-- News Feed -->
-          <div class="flex-1 overflow-hidden flex flex-col border-t border-outline-variant/15">
-            <div class="px-4 py-2 flex-shrink-0">
-              <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Latest News</span>
+            <!-- Sentiment block -->
+            <div class="px-4 pb-3 flex-shrink-0 border-t border-outline-variant/10">
+              <div class="flex items-center justify-between py-2 mb-2">
+                <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Sentiment</span>
+                <div class="flex items-center gap-1" id="rp-sent-loading" style="display:none!important">
+                  <div class="spin" style="width:10px;height:10px;border-width:1.5px;"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between bg-surface-container p-2.5 ghost-border mb-2">
+                <span class="text-[9px] font-label text-on-surface-variant uppercase tracking-widest">VADER Score</span>
+                <span class="text-sm font-bold font-label" id="rp-sent-score">—</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-[9px] font-label text-on-surface-variant uppercase">Label</span>
+                <span class="text-[10px] font-label font-bold px-2 py-0.5 border" id="rp-sent-label">—</span>
+              </div>
             </div>
-            <div class="flex-1 overflow-y-auto no-scrollbar px-2" id="news-feed">
-              <div class="text-center text-on-surface-variant font-label text-[10px] py-4">Select a ticker to load news</div>
+
+            <!-- Divergence block -->
+            <div class="px-4 pb-4 flex-shrink-0 border-t border-outline-variant/10">
+              <div class="py-2 mb-2">
+                <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Divergence Signal</span>
+              </div>
+              <div class="bg-surface-container p-2.5 ghost-border mb-2">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[9px] font-label text-on-surface-variant uppercase">Signal</span>
+                  <span class="text-[10px] font-label font-bold px-2 py-0.5 border" id="rp-div-signal">—</span>
+                </div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[9px] font-label text-on-surface-variant uppercase">10d Return</span>
+                  <span class="text-xs font-label font-bold" id="rp-div-ret">—</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[9px] font-label text-on-surface-variant uppercase">Score</span>
+                  <span class="text-xs font-label" id="rp-div-score">—</span>
+                </div>
+              </div>
+              <div class="text-[10px] font-label text-on-surface-variant leading-relaxed" id="rp-div-interp">—</div>
+            </div>
+
+            <!-- News Feed -->
+            <div class="flex-1 flex flex-col border-t border-outline-variant/15 min-h-0">
+              <div class="px-4 py-2 flex-shrink-0">
+                <span class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Latest News</span>
+              </div>
+              <div class="overflow-y-auto no-scrollbar px-2 flex-1" id="news-feed">
+                <div class="text-center text-on-surface-variant font-label text-[10px] py-4">Select a ticker to load news</div>
+              </div>
             </div>
           </div>
         </div>
@@ -402,7 +445,7 @@ tailwind.config = {
               RISK INTELLIGENCE
               <span class="px-2 py-0.5 border border-primary/20 text-[10px] font-label text-primary uppercase tracking-widest">AI-Powered</span>
             </h1>
-            <p class="text-on-surface-variant font-label text-xs uppercase tracking-widest mt-1">Rules-based risk signals · Concentration · Momentum · Drawdown</p>
+            <p class="text-on-surface-variant font-label text-xs uppercase tracking-widest mt-1">Rules-based risk signals · Concentration · Momentum · Drawdown · Stress Testing</p>
           </div>
           <button onclick="loadIntelligence()" class="px-4 py-2 bg-gradient-to-br from-primary to-primary-container text-on-primary font-label text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:opacity-90 transition-opacity">
             <span class="material-symbols-outlined text-sm">refresh</span> Refresh Analysis
@@ -426,7 +469,7 @@ tailwind.config = {
                   <span class="text-lg font-label text-primary" id="ins-conc">—</span>
                 </div>
                 <div class="w-full bg-surface-container-highest h-1">
-                  <div class="bg-primary h-full" id="ins-conc-bar" style="width:0%"></div>
+                  <div class="bg-primary h-full transition-all duration-700" id="ins-conc-bar" style="width:0%"></div>
                 </div>
               </div>
               <div>
@@ -435,16 +478,16 @@ tailwind.config = {
                   <span class="text-lg font-label text-secondary" id="ins-vol">—</span>
                 </div>
                 <div class="w-full bg-surface-container-highest h-1">
-                  <div class="bg-secondary h-full" id="ins-vol-bar" style="width:0%"></div>
+                  <div class="bg-secondary h-full transition-all duration-700" id="ins-vol-bar" style="width:0%"></div>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3 mt-4">
                 <div class="bg-surface-container p-3 ghost-border">
-                  <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Overbought Positions</div>
+                  <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Overbought</div>
                   <div class="text-xl font-bold text-error" id="ins-ob">—</div>
                 </div>
                 <div class="bg-surface-container p-3 ghost-border">
-                  <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Oversold Positions</div>
+                  <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Oversold</div>
                   <div class="text-xl font-bold text-primary" id="ins-os">—</div>
                 </div>
               </div>
@@ -452,7 +495,7 @@ tailwind.config = {
           </div>
 
           <div class="col-span-12 lg:col-span-7 bg-surface-container p-5 ghost-border">
-            <div class="flex justify-between items-center mb-6 border-b border-outline-variant/10 pb-2">
+            <div class="flex justify-between items-center mb-4 border-b border-outline-variant/10 pb-2">
               <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Alert Summary</h3>
               <div class="flex gap-2">
                 <span class="text-[9px] font-label px-2 py-0.5 bg-error/10 text-error border border-error/20">
@@ -471,6 +514,59 @@ tailwind.config = {
             </div>
           </div>
         </div>
+
+        <!-- Factor Risk Decomposition -->
+        <div class="bg-surface-container ghost-border">
+          <div class="p-4 border-b border-outline-variant/10 flex justify-between items-center">
+            <div>
+              <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Factor Risk Decomposition</h3>
+              <p class="text-[10px] font-label text-on-surface-variant mt-0.5 opacity-60">Beta vs SPY · Sector Allocation · Herfindahl Index</p>
+            </div>
+            <button onclick="loadDecompose()" class="text-[10px] font-label px-3 py-1.5 bg-surface-container-high ghost-border hover:bg-surface-container-highest uppercase tracking-wider flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-xs">account_tree</span> Decompose
+            </button>
+          </div>
+          <div class="p-5" id="decompose-wrap">
+            <div class="text-center text-on-surface-variant font-label text-[10px] py-4">Click Decompose to run factor analysis</div>
+          </div>
+        </div>
+
+        <!-- Stress Test Engine -->
+        <div class="bg-surface-container ghost-border">
+          <div class="p-4 border-b border-outline-variant/10">
+            <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Stress Test Engine</h3>
+            <p class="text-[10px] font-label text-on-surface-variant mt-0.5 opacity-60">Simulate macro shocks against your current portfolio</p>
+          </div>
+          <div class="p-5">
+            <!-- Scenario picker -->
+            <div class="flex flex-wrap gap-2 mb-5" id="scenario-buttons">
+              <button onclick="runStressTest('market_crash_10pct')"
+                class="scenario-btn text-[10px] font-label px-3 py-1.5 ghost-border bg-surface-container-low hover:bg-error/10 hover:border-error/40 hover:text-error uppercase tracking-wider transition-all">
+                Market Crash −10%
+              </button>
+              <button onclick="runStressTest('us_recession')"
+                class="scenario-btn text-[10px] font-label px-3 py-1.5 ghost-border bg-surface-container-low hover:bg-error/10 hover:border-error/40 hover:text-error uppercase tracking-wider transition-all">
+                US Recession
+              </button>
+              <button onclick="runStressTest('it_sector_shock')"
+                class="scenario-btn text-[10px] font-label px-3 py-1.5 ghost-border bg-surface-container-low hover:bg-error/10 hover:border-error/40 hover:text-error uppercase tracking-wider transition-all">
+                IT Sector Shock
+              </button>
+              <button onclick="runStressTest('rbi_rate_hike')"
+                class="scenario-btn text-[10px] font-label px-3 py-1.5 ghost-border bg-surface-container-low hover:bg-error/10 hover:border-error/40 hover:text-error uppercase tracking-wider transition-all">
+                RBI Rate Hike
+              </button>
+              <button onclick="runStressTest('fii_outflow')"
+                class="scenario-btn text-[10px] font-label px-3 py-1.5 ghost-border bg-surface-container-low hover:bg-error/10 hover:border-error/40 hover:text-error uppercase tracking-wider transition-all">
+                FII Outflow Shock
+              </button>
+            </div>
+            <div id="stress-results">
+              <div class="text-center text-on-surface-variant font-label text-[10px] py-4">Select a scenario above to simulate impact</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -746,6 +842,10 @@ async function loadTerminal(ticker){
         }).join('');
       }
     }
+
+    // ── Sentiment + Divergence (non-blocking, parallel) ──
+    loadSentimentPanel(currentTicker);
+
   }catch(e){
     document.getElementById('chart-loading').style.display = 'none';
   }
@@ -903,14 +1003,18 @@ async function loadIntelligence(){
     if(!ins.alerts?.length){
       list.innerHTML = `<div class="text-center text-primary font-label text-[10px] py-4 border border-primary/20 bg-primary/5">✓ No risk alerts detected — portfolio looks healthy</div>`;
     } else {
+      const confColors = {high:'text-error border-error/40 bg-error/10',medium:'text-[#ffaaf7] border-[#ffaaf7]/40 bg-[#ffaaf7]/5',low:'text-on-surface-variant border-outline-variant/20 bg-surface-container'};
       list.innerHTML = ins.alerts.map(a => {
         const isHigh = a.severity==='high';
         const bc = isHigh ? 'border-error/20 bg-error/5' : 'border-outline-variant/20 bg-surface-container';
         const sc = isHigh ? 'bg-error/10 text-error border-error/20' : 'bg-surface-container-high text-on-surface-variant border-outline-variant/20';
+        const conf = a.confidence || 'low';
+        const cc = confColors[conf] || confColors.low;
         return `<div class="flex items-start gap-3 p-3 border ${bc}">
           <span class="text-[9px] font-label font-bold px-1.5 py-0.5 border ${sc} flex-shrink-0">${a.severity.toUpperCase()}</span>
+          <span class="text-[9px] font-label font-bold px-1.5 py-0.5 border ${cc} flex-shrink-0 uppercase">${conf}</span>
           <span class="text-[9px] font-label font-bold text-primary min-w-[48px] flex-shrink-0">${a.ticker}</span>
-          <span class="text-[9px] font-label text-on-surface-variant uppercase min-w-[100px] flex-shrink-0">${a.type.replace(/_/g,' ')}</span>
+          <span class="text-[9px] font-label text-on-surface-variant uppercase min-w-[80px] flex-shrink-0">${a.type.replace(/_/g,' ')}</span>
           <span class="text-xs font-label text-on-surface">${a.message}</span>
         </div>`;
       }).join('');
@@ -918,6 +1022,194 @@ async function loadIntelligence(){
   }catch(e){
     document.getElementById('ins-summary').textContent = 'Connection error.';
     document.getElementById('alerts-list').innerHTML = '';
+  }
+}
+
+// ── SENTIMENT + DIVERGENCE PANEL ─────────────────────────────────────────────
+const sentColors = {Positive:'text-primary border-primary/40 bg-primary/5', Negative:'text-error border-error/40 bg-error/5', Neutral:'text-on-surface-variant border-outline-variant/30 bg-surface-container'};
+const divColors  = {'Confirmed Bullish':'#60dac1','Bullish Divergence':'#60dac1','Confirmed Bearish':'#ffb4ab','Bearish Divergence':'#ffb4ab','Neutral':'#86948f','Insufficient Data':'#86948f'};
+
+async function loadSentimentPanel(ticker){
+  // reset
+  ['rp-sent-score','rp-sent-label','rp-div-signal','rp-div-ret','rp-div-score','rp-div-interp'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.textContent = '…';
+  });
+
+  try{
+    const [sR, dR] = await Promise.all([
+      fetch(`${API}/sentiment/${ticker}`),
+      fetch(`${API}/divergence/${ticker}`)
+    ]);
+
+    if(sR.ok){
+      const s = await sR.json();
+      const score = s.sentiment_score ?? 0;
+      const label = s.sentiment_label || 'Neutral';
+      const el = document.getElementById('rp-sent-score');
+      if(el){ el.textContent = score.toFixed(3); el.style.color = score>0.05?'#60dac1':score<-0.05?'#ffb4ab':'#86948f'; }
+      const lel = document.getElementById('rp-sent-label');
+      if(lel){ lel.textContent = label; lel.className = `text-[10px] font-label font-bold px-2 py-0.5 border ${sentColors[label]||sentColors.Neutral}`; }
+    }
+
+    if(dR.ok){
+      const d = await dR.json();
+      const sig = d.signal || 'Neutral';
+      const sigEl = document.getElementById('rp-div-signal');
+      if(sigEl){
+        sigEl.textContent = sig;
+        const sc = divColors[sig]||'#86948f';
+        const isBull = sig.includes('Bullish');
+        const isBear = sig.includes('Bearish');
+        sigEl.className = `text-[10px] font-label font-bold px-2 py-0.5 border ${isBull?'text-primary border-primary/40 bg-primary/5':isBear?'text-error border-error/40 bg-error/5':'text-on-surface-variant border-outline-variant/30 bg-surface-container'}`;
+      }
+      const ret = d.price_return_10d;
+      const retEl = document.getElementById('rp-div-ret');
+      if(retEl){ retEl.textContent = ret!=null?$p(ret):'—'; retEl.style.color = ret>=0?'#60dac1':'#ffb4ab'; }
+      const scoreEl = document.getElementById('rp-div-score');
+      if(scoreEl) scoreEl.textContent = d.divergence_score!=null?d.divergence_score.toFixed(3):'—';
+      const interpEl = document.getElementById('rp-div-interp');
+      if(interpEl) interpEl.textContent = d.interpretation || '—';
+    }
+  }catch(e){
+    ['rp-sent-score','rp-sent-label','rp-div-signal','rp-div-ret','rp-div-score','rp-div-interp'].forEach(id=>{
+      const el = document.getElementById(id); if(el) el.textContent = '—';
+    });
+  }
+}
+
+// ── FACTOR DECOMPOSE ──────────────────────────────────────────────────────────
+async function loadDecompose(){
+  const wrap = document.getElementById('decompose-wrap');
+  wrap.innerHTML = `<div class="flex items-center gap-2 font-label text-xs text-on-surface-variant"><div class="spin"></div> Running factor analysis…</div>`;
+  try{
+    const r = await fetch(`${API}/portfolio/risk/decompose`);
+    if(!r.ok){ wrap.innerHTML=`<div class="font-label text-xs text-error">Failed — add holdings first.</div>`; return; }
+    const d = await r.json();
+
+    const sectors = d.sector_allocation || {};
+    const betas   = d.beta_by_ticker || {};
+    const sectorHtml = Object.entries(sectors).length
+      ? Object.entries(sectors).sort((a,b)=>b[1]-a[1]).map(([s,w])=>`
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] font-label text-on-surface-variant w-36 flex-shrink-0">${s}</span>
+            <div class="flex-1 bg-surface-container-highest h-1.5">
+              <div class="bg-primary h-full transition-all duration-700" style="width:${Math.min(100,w)}%"></div>
+            </div>
+            <span class="text-[10px] font-label text-primary w-10 text-right">${w.toFixed(1)}%</span>
+          </div>`).join('')
+      : '<span class="text-[10px] font-label text-on-surface-variant">No sector data</span>';
+
+    const betaHtml = Object.entries(betas).length
+      ? `<table class="w-full text-left border-collapse">
+          <thead><tr class="border-b border-outline-variant/10">
+            <th class="pb-2 text-[9px] font-label text-on-surface-variant uppercase tracking-widest">Ticker</th>
+            <th class="pb-2 text-[9px] font-label text-on-surface-variant uppercase tracking-widest text-right">Beta vs SPY</th>
+          </tr></thead>
+          <tbody class="divide-y divide-outline-variant/5">
+            ${Object.entries(betas).map(([t,b])=>{
+              const bc = b>1.2?'text-error':b<0.8?'text-primary':'text-on-surface';
+              return `<tr><td class="py-1.5 text-xs font-bold text-primary font-label">${t}</td><td class="py-1.5 text-xs font-label font-bold text-right ${bc}">${b}x</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>`
+      : '<span class="text-[10px] font-label text-on-surface-variant">Insufficient history for beta calculation (need 30+ days)</span>';
+
+    wrap.innerHTML = `
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+          <div>
+            <div class="text-[9px] font-label text-on-surface-variant uppercase tracking-widest mb-3">Sector Allocation</div>
+            <div class="space-y-2">${sectorHtml}</div>
+          </div>
+          <div>
+            <div class="text-[9px] font-label text-on-surface-variant uppercase tracking-widest mb-3">Beta vs ${d.benchmark||'SPY'}</div>
+            ${betaHtml}
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div class="bg-surface-container-low p-4 ghost-border">
+            <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Avg Beta</div>
+            <div class="text-2xl font-black tracking-tight" style="color:${d.avg_beta>1.2?'#ffb4ab':d.avg_beta<0.8?'#60dac1':'#bccac4'}">${d.avg_beta!=null?d.avg_beta+'x':'—'}</div>
+          </div>
+          <div class="bg-surface-container-low p-4 ghost-border">
+            <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">Herfindahl Index</div>
+            <div class="text-2xl font-black tracking-tight text-primary">${d.herfindahl_score!=null?d.herfindahl_score.toFixed(3):'—'}</div>
+          </div>
+          <div class="bg-surface-container-lowest p-3 ghost-border border-l-2 border-primary/40">
+            <div class="text-[9px] font-label text-primary uppercase mb-2">Plain English</div>
+            <div class="text-xs font-label text-on-surface leading-relaxed">${d.plain_english_summary||'—'}</div>
+          </div>
+        </div>
+      </div>`;
+  }catch(e){
+    wrap.innerHTML = `<div class="font-label text-xs text-error">Error running decomposition.</div>`;
+  }
+}
+
+// ── STRESS TEST ───────────────────────────────────────────────────────────────
+async function runStressTest(scenario){
+  // Highlight active button
+  document.querySelectorAll('.scenario-btn').forEach(b=>{
+    b.classList.remove('bg-error/10','text-error','border-error/40');
+    b.classList.add('bg-surface-container-low');
+  });
+  event.currentTarget.classList.add('bg-error/10','text-error','border-error/40');
+  event.currentTarget.classList.remove('bg-surface-container-low');
+
+  const wrap = document.getElementById('stress-results');
+  wrap.innerHTML = `<div class="flex items-center gap-2 font-label text-xs text-on-surface-variant"><div class="spin"></div> Running simulation…</div>`;
+  try{
+    const r = await fetch(`${API}/portfolio/stress-test?scenario=${scenario}`);
+    if(!r.ok){ wrap.innerHTML=`<div class="font-label text-xs text-error">Simulation failed — add holdings first.</div>`; return; }
+    const d = await r.json();
+
+    const impPct = d.total_impact_pct;
+    const impCol = impPct < 0 ? '#ffb4ab' : '#60dac1';
+
+    wrap.innerHTML = `
+      <div class="mb-4 flex flex-wrap gap-4 items-end">
+        <div>
+          <div class="text-[9px] font-label text-on-surface-variant uppercase mb-1">${d.scenario_name}</div>
+          <div class="text-[10px] font-label text-on-surface-variant opacity-60">${d.description}</div>
+        </div>
+        <div class="ml-auto flex gap-4">
+          <div class="text-right">
+            <div class="text-[9px] font-label text-on-surface-variant uppercase mb-0.5">Portfolio Impact</div>
+            <div class="text-xl font-black tracking-tight" style="color:${impCol}">${$p(impPct)}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[9px] font-label text-on-surface-variant uppercase mb-0.5">Dollar Loss</div>
+            <div class="text-xl font-black tracking-tight" style="color:${impCol}">$${$f(d.total_impact)}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[9px] font-label text-on-surface-variant uppercase mb-0.5">Stressed Value</div>
+            <div class="text-xl font-black tracking-tight text-on-surface">$${$f(d.total_stressed_value)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="overflow-x-auto no-scrollbar">
+        <table class="w-full text-left border-collapse">
+          <thead><tr class="bg-surface-container-lowest/50 border-b border-outline-variant/10">
+            <th class="p-3 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Ticker</th>
+            <th class="p-3 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Current</th>
+            <th class="p-3 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Stressed</th>
+            <th class="p-3 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Shock</th>
+            <th class="p-3 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Impact</th>
+          </tr></thead>
+          <tbody class="divide-y divide-outline-variant/5">
+            ${(d.holdings||[]).map(h=>`
+              <tr class="hover:bg-surface-container-highest/10 transition-colors">
+                <td class="p-3 font-bold text-primary text-xs font-label">${h.ticker}</td>
+                <td class="p-3 text-xs font-label">$${$f(h.current_value)}</td>
+                <td class="p-3 text-xs font-label">$${$f(h.stressed_value)}</td>
+                <td class="p-3 text-xs font-label font-bold text-error">${h.shock_pct}%</td>
+                <td class="p-3 text-xs font-label font-bold text-error">$${$f(h.impact)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }catch(e){
+    wrap.innerHTML = `<div class="font-label text-xs text-error">Error running stress test.</div>`;
   }
 }
 
