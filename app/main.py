@@ -56,7 +56,7 @@ def health():
 
 @app.post("/portfolio", response_model=schemas.HoldingOut, tags=["Portfolio"])
 async def add_holding(holding: schemas.HoldingCreate, db: Session = Depends(get_db)):
-    price = await stock_service.get_current_price(holding.ticker.upper())
+    price = stock_service.get_current_price(holding.ticker.upper())
     if price is None:
         raise HTTPException(status_code=404, detail=f"Ticker '{holding.ticker}' not found.")
     existing = db.query(models.Holding).filter(models.Holding.ticker == holding.ticker.upper()).first()
@@ -107,7 +107,7 @@ async def get_portfolio_summary(db: Session = Depends(get_db)):
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
     
-    summary = await stock_service.build_portfolio_summary(holdings)
+    summary = stock_service.build_portfolio_summary(holdings)
     if summary is None:
         raise HTTPException(status_code=503, detail="Could not fetch live prices.")
     return summary
@@ -118,14 +118,14 @@ async def portfolio_chart(db: Session = Depends(get_db)):
     holdings = db.query(models.Holding).all()
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
-    return await stock_service.get_portfolio_chart(holdings)
+    return stock_service.get_portfolio_chart(holdings)
 
 
 # ── MARKET DATA ───────────────────────────────────────────────────────────────
 
 @app.get("/quote/{ticker}", response_model=schemas.StockQuote, tags=["Market Data"])
 async def get_quote(ticker: str):
-    quote = await stock_service.get_full_quote(ticker.upper())
+    quote = stock_service.get_full_quote(ticker.upper())
     if quote is None:
         raise HTTPException(status_code=404, detail=f"Could not fetch data for '{ticker}'.")
     return quote
@@ -135,7 +135,7 @@ async def get_quote(ticker: str):
 async def get_history(ticker: str, days: int = 30):
     if not 1 <= days <= 365:
         raise HTTPException(status_code=400, detail="days must be between 1 and 365.")
-    history = await stock_service.get_price_history(ticker.upper(), days)
+    history = stock_service.get_price_history(ticker.upper(), days)
     if not history:
         raise HTTPException(status_code=404, detail=f"No history found for '{ticker}'.")
     return history
@@ -143,7 +143,7 @@ async def get_history(ticker: str, days: int = 30):
 
 @app.get("/metrics/{ticker}", response_model=schemas.StockMetrics, tags=["Market Data"])
 async def get_metrics(ticker: str):
-    metrics = await stock_service.compute_metrics(ticker.upper())
+    metrics = stock_service.compute_metrics(ticker.upper())
     if metrics is None:
         raise HTTPException(status_code=404, detail=f"Could not compute metrics for '{ticker}'.")
     return metrics
@@ -151,19 +151,19 @@ async def get_metrics(ticker: str):
 
 @app.get("/news/{ticker}", tags=["Market Data"])
 async def get_news(ticker: str):
-    return await stock_service.get_company_news(ticker.upper())
+    return stock_service.get_company_news(ticker.upper())
 
 
 @app.get("/market/overview", tags=["Market Data"])
 async def market_overview():
-    return await stock_service.get_market_overview()
+    return stock_service.get_market_overview()
 
 
 @app.get("/candles/{ticker}", tags=["Market Data"])
 async def get_candles(ticker: str, days: int = 30):
     if not 1 <= days <= 365:
         raise HTTPException(status_code=400, detail="days must be between 1 and 365.")
-    data = await stock_service.get_candles(ticker.upper(), days)
+    data = stock_service.get_candles(ticker.upper(), days)
     if not data:
         raise HTTPException(status_code=404, detail=f"No candle data for '{ticker}'.")
     return data
@@ -177,12 +177,12 @@ async def portfolio_insights(db: Session = Depends(get_db)):
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
 
-    summary = await stock_service.build_portfolio_summary(holdings)
+    summary = stock_service.build_portfolio_summary(holdings)
     if not summary:
         raise HTTPException(status_code=503, detail="Could not fetch live prices.")
 
     # Concurrently fetch metrics to avoid sequential bottlenecks
-    tasks = [stock_service.compute_metrics(h.ticker) for h in summary.holdings]
+    tasks = [asyncio.to_thread(stock_service.compute_metrics, h.ticker) for h in summary.holdings]
     metrics_results = await asyncio.gather(*tasks)
 
     enriched = []
@@ -205,7 +205,7 @@ async def portfolio_risk(db: Session = Depends(get_db)):
     holdings = db.query(models.Holding).all()
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
-    return await stock_service.get_portfolio_risk(holdings)
+    return stock_service.get_portfolio_risk(holdings)
 
 
 @app.get("/portfolio/risk/decompose", tags=["Intelligence"])
@@ -213,7 +213,7 @@ async def portfolio_risk_decompose(db: Session = Depends(get_db)):
     holdings = db.query(models.Holding).all()
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
-    return await stock_service.decompose_risk(holdings)
+    return stock_service.decompose_risk(holdings)
 
 
 @app.get("/portfolio/stress-test/scenarios", tags=["Intelligence"])
@@ -226,7 +226,7 @@ async def stress_test(scenario: str = "market_crash_10pct", db: Session = Depend
     holdings = db.query(models.Holding).all()
     if not holdings:
         raise HTTPException(status_code=404, detail="Portfolio is empty.")
-    result = await stock_service.run_stress_test(holdings, scenario)
+    result = stock_service.run_stress_test(holdings, scenario)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -234,9 +234,9 @@ async def stress_test(scenario: str = "market_crash_10pct", db: Session = Depend
 
 @app.get("/sentiment/{ticker}", tags=["Intelligence"])
 async def get_sentiment(ticker: str):
-    return await stock_service.get_sentiment(ticker.upper())
+    return stock_service.get_sentiment(ticker.upper())
 
 
 @app.get("/divergence/{ticker}", tags=["Intelligence"])
 async def get_divergence(ticker: str):
-    return await stock_service.get_divergence(ticker.upper())
+    return stock_service.get_divergence(ticker.upper())

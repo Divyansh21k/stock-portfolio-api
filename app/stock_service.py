@@ -140,7 +140,42 @@ async def _fetch_av_daily(ticker: str) -> dict:
         "symbol":    ticker,
         "outputsize": "compact"
     })
-    return data.get("Time Series (Daily)", {})
+    if not isinstance(data, dict):
+        return {}
+    ts = data.get("Time Series (Daily)")
+    return ts if isinstance(ts, dict) else {}
+
+
+async def _fetch_fh_daily(ticker: str, days: int = 120) -> dict:
+    now = datetime.utcnow()
+    start = now - timedelta(days=days)
+    data = await _fh_get("/stock/candle", {
+        "symbol": ticker,
+        "resolution": "D",
+        "from": int(start.timestamp()),
+        "to": int(now.timestamp())
+    })
+    if not isinstance(data, dict) or data.get("s") != "ok":
+        return {}
+
+    ts = {}
+    stamps = data.get("t") or []
+    opens = data.get("o") or []
+    highs = data.get("h") or []
+    lows = data.get("l") or []
+    closes = data.get("c") or []
+    volumes = data.get("v") or []
+    count = min(len(stamps), len(opens), len(highs), len(lows), len(closes), len(volumes))
+    for i in range(count):
+        date_str = datetime.utcfromtimestamp(int(stamps[i])).strftime("%Y-%m-%d")
+        ts[date_str] = {
+            "1. open": str(opens[i]),
+            "2. high": str(highs[i]),
+            "3. low": str(lows[i]),
+            "4. close": str(closes[i]),
+            "5. volume": str(volumes[i]),
+        }
+    return ts
 
 
 def _av_daily(ticker: str) -> dict:
@@ -149,6 +184,8 @@ def _av_daily(ticker: str) -> dict:
         return cached
     try:
         ts = _run(_fetch_av_daily(ticker))
+        if not ts:
+            ts = _run(_fetch_fh_daily(ticker))
         if ts:
             _cache.set(f"av_daily:{ticker}", ts, HISTORY_TTL)
         return ts or {}
@@ -200,23 +237,33 @@ def get_candles(ticker: str, days: int = 30):
 
 # ── METRICS ───────────────────────────────────────────────────────────────────
 
-def compute_metrics(ticker: str) -> Optional[schemas.StockMetrics]:
+def compute_metrics(ticker: str) -> schemas.StockMetrics:
+    default = schemas.StockMetrics(
+        ticker=ticker, ma_20=0.0, ma_50=0.0, rsi_14=50.0, volatility=0.0, trend="Neutral"
+    )
     try:
         ts = _av_daily(ticker)
-        if not ts or len(ts) < 20:
-            return None
-        closes  = pd.Series([float(ts[d]["4. close"]) for d in sorted(ts.keys())], dtype=float)
-        ma_20   = round(float(closes.rolling(20).mean().iloc[-1]), 2) if len(closes) >= 20 else None
-        ma_50   = round(float(closes.rolling(50).mean().iloc[-1]), 2) if len(closes) >= 50 else None
-        rsi     = _compute_rsi(closes)
+        if not ts:
+            return default
+
+        closes = pd.Series([
+            float(ts[d]["4. close"]) for d in sorted(ts.keys()) if "4. close" in ts[d]
+        ], dtype=float).dropna()
+        if closes.empty:
+            return default
+
+        latest_close = round(float(closes.iloc[-1]), 2)
+        ma_20 = round(float(closes.rolling(20, min_periods=1).mean().iloc[-1]), 2) if len(closes) >= 1 else latest_close
+        ma_50 = round(float(closes.rolling(50, min_periods=1).mean().iloc[-1]), 2) if len(closes) >= 1 else latest_close
+        rsi = _compute_rsi(closes)
+        if rsi is None:
+            rsi = 50.0
         log_ret = np.log(closes / closes.shift(1)).dropna()
-        vol     = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 5 else None
-        trend   = None
-        if ma_20 and ma_50:
-            trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
+        vol = round(float(log_ret.tail(30).std() * np.sqrt(252) * 100), 2) if len(log_ret) >= 2 else 0.0
+        trend = "Bullish" if ma_20 > ma_50 else ("Bearish" if ma_20 < ma_50 else "Neutral")
         return schemas.StockMetrics(ticker=ticker, ma_20=ma_20, ma_50=ma_50, rsi_14=rsi, volatility=vol, trend=trend)
     except Exception:
-        return None
+        return default
 
 
 def _compute_rsi(closes: pd.Series, period: int = 14) -> Optional[float]:
@@ -335,16 +382,25 @@ def get_portfolio_chart(holdings, days: int = 30):
 
 def generate_portfolio_insights(holdings_with_metrics: list) -> dict:
     alerts = []
-    total_value = sum(h.get("current_value", 0) for h in holdings_with_metrics)
+    def _safe_float(value, default=0.0):
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    total_value = sum(_safe_float(h.get("current_value"), 0.0) for h in holdings_with_metrics)
 
     for h in holdings_with_metrics:
-        ticker  = h["ticker"]
-        weight  = h["current_value"] / total_value if total_value else 0
-        rsi     = h.get("rsi_14")
-        ma_20   = h.get("ma_20")
-        ma_50   = h.get("ma_50")
-        vol     = h.get("volatility")
-        pnl_pct = h.get("pnl_pct", 0)
+        ticker  = h.get("ticker", "UNKNOWN")
+        current_value = _safe_float(h.get("current_value"), 0.0)
+        weight  = current_value / total_value if total_value else 0
+        rsi     = _safe_float(h.get("rsi_14"), 50.0)
+        ma_20   = _safe_float(h.get("ma_20"), 0.0)
+        ma_50   = _safe_float(h.get("ma_50"), 0.0)
+        vol     = _safe_float(h.get("volatility"), 0.0)
+        pnl_pct = _safe_float(h.get("pnl_pct"), 0.0)
         signals = 0
 
         # Concentration risk
@@ -358,14 +414,14 @@ def generate_portfolio_insights(holdings_with_metrics: list) -> dict:
             signals += 1
 
         # RSI signals
-        if rsi and rsi > 70:
+        if rsi > 70:
             signals += 1
             alerts.append({
                 "ticker": ticker, "type": "overbought", "severity": "high",
                 "message": f"RSI at {rsi} — momentum suggests short-term pullback risk",
                 "confidence": "high" if signals >= 3 else ("medium" if signals >= 2 else "low")
             })
-        elif rsi and rsi < 30:
+        elif rsi < 30:
             signals += 1
             alerts.append({
                 "ticker": ticker, "type": "oversold", "severity": "medium",
@@ -374,7 +430,7 @@ def generate_portfolio_insights(holdings_with_metrics: list) -> dict:
             })
 
         # Bearish crossover
-        if ma_20 and ma_50 and ma_20 < ma_50 * 0.97:
+        if ma_20 > 0 and ma_50 > 0 and ma_20 < ma_50 * 0.97:
             signals += 1
             alerts.append({
                 "ticker": ticker, "type": "bearish_cross", "severity": "medium",
@@ -383,7 +439,7 @@ def generate_portfolio_insights(holdings_with_metrics: list) -> dict:
             })
 
         # High volatility
-        if vol and vol > 50:
+        if vol > 50:
             signals += 1
             alerts.append({
                 "ticker": ticker, "type": "high_volatility", "severity": "medium",
